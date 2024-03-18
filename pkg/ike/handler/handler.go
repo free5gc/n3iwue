@@ -234,17 +234,17 @@ func HandleIKEAUTH(udpConn *net.UDPConn, n3iwfAddr, ueAddr *net.UDPAddr, message
 		}
 
 		// Calculate for RES*
-		if decodedNAS == nil {
+		if decodedNAS == nil || decodedNAS.GmmMessage == nil {
 			nasLog.Error("decodedNAS is nil")
 			return
 		}
 
-		switch decodedNAS.GsmMessage.GetMessageType() {
+		switch decodedNAS.GmmMessage.GetMessageType() {
 		case nas.MsgTypeAuthenticationRequest:
 			nasLog.Info("Received Authentication Request")
 		default:
 			nasLog.Errorf("Received unexpected message type: %d",
-				decodedNAS.GsmMessage.GetMessageType())
+				decodedNAS.GmmMessage.GetMessageType())
 		}
 
 		rand := decodedNAS.AuthenticationRequest.GetRANDValue()

@@ -51,16 +51,25 @@ func StartProcedure() {
 						return
 					}
 				case context.PduSessionEst:
-					if n3ueSelf.PduSessionCount < 2 {
-						AppLog.Info("Start PduSession Establishment")
-						nwucp_handler.SendPduSessionEstablishmentRequest(n3ueSelf.RanUeContext, n3ueSelf.N3IWFUe.TCPConnection, n3ueSelf.PduSessionCount)
-					} else {
-						if err := TestConnectivity("8.8.8.8"); err != nil {
-							AppLog.Errorf("ping fail : %+v", err)
+					AppLog.Info("Start PduSession Establishment")
+					done := false
+					for !done {
+						err := nwucp_handler.
+							SendPduSessionEstablishmentRequest(n3ueSelf.RanUeContext,
+								n3ueSelf.N3IWFUe.TCPConnection, n3ueSelf.PduSessionCount)
+						if err != nil {
+							AppLog.Errorf("Send PduSession Establishment Request failed: %+v", err)
 						} else {
-							logger.NASLog.Infof("ULCount=%x, DLCount=%x", n3ueSelf.RanUeContext.ULCount.Get(), n3ueSelf.RanUeContext.DLCount.Get())
-							AppLog.Info("Keep connection with N3IWF until receive SIGINT or SIGTERM")
+							done = true
 						}
+					}
+				case context.PduSessionCreated:
+					AppLog.Info("PduSession Created")
+					if err := TestConnectivity("8.8.8.8"); err != nil {
+						AppLog.Errorf("ping fail : %+v", err)
+					} else {
+						logger.NASLog.Infof("ULCount=%x, DLCount=%x", n3ueSelf.RanUeContext.ULCount.Get(), n3ueSelf.RanUeContext.DLCount.Get())
+						AppLog.Info("Keep connection with N3IWF until receive SIGINT or SIGTERM")
 					}
 				}
 			}

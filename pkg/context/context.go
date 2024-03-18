@@ -23,6 +23,7 @@ const (
 	Registration_IKEAUTH
 	Registration_CreateNWUCP
 	PduSessionEst
+	PduSessionCreated
 )
 
 type N3UE struct {

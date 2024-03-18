@@ -27,12 +27,11 @@ func SendNasMsg(ue *security.RanUeContext, conn net.Conn, msg []byte) {
 	}
 }
 
-func SendPduSessionEstablishmentRequest(ue *security.RanUeContext, conn net.Conn, pduSessionId uint8) {
+func SendPduSessionEstablishmentRequest(ue *security.RanUeContext,
+	conn net.Conn, pduSessionId uint8) error {
 	sst, err := strconv.ParseInt(factory.N3ueInfo.SmPolicy[0].SNSSAI.SST, 16, 0)
-
 	if err != nil {
-		naslog.Error(err)
-		return
+		return err
 	}
 
 	sNssai := models.Snssai{
@@ -40,11 +39,17 @@ func SendPduSessionEstablishmentRequest(ue *security.RanUeContext, conn net.Conn
 		Sd:  factory.N3ueInfo.SmPolicy[0].SNSSAI.SD,
 	}
 
-	pdu := nasPacket.GetUlNasTransport_PduSessionEstablishmentRequest(pduSessionId, nasMessage.ULNASTransportRequestTypeInitialRequest, "internet", &sNssai)
+	pdu := nasPacket.GetUlNasTransport_PduSessionEstablishmentRequest(
+		pduSessionId,
+		nasMessage.ULNASTransportRequestTypeInitialRequest,
+		"internet",
+		&sNssai,
+	)
 
 	forwardData := make([]byte, len(pdu))
 	copy(forwardData, pdu[:])
 
 	SendNasMsg(ue, conn, forwardData)
 	naslog.Tracef("send nas complete")
+	return nil
 }

@@ -76,6 +76,6 @@ func HandleDLNASTransport(n3ueSelf *context.N3UE, nasMsg *nas.Message) {
 		}
 
 		n3ueSelf.PduSessionCount++
-		n3ueSelf.CurrentState <- uint8(context.PduSessionEst)
+		n3ueSelf.CurrentState <- uint8(context.PduSessionCreated)
 	}
 }

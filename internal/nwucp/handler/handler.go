@@ -52,6 +52,7 @@ func HandleDLNASTransport(n3ueSelf *context.N3UE, nasMsg *nas.Message) {
 		}
 
 		naslog.Infof("PDU Address: %s", pduAddress.String())
+		n3ueSelf.N3ueInfo.DnIPAddr = pduAddress.String()
 
 		newGREName := fmt.Sprintf("%s-id-%d", n3ueSelf.N3ueInfo.GreIfaceName, n3ueSelf.N3ueInfo.XfrmiId)
 

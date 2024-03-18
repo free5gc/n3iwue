@@ -102,7 +102,9 @@ func TestConnectivity(addr string) error {
 
 	pinger.Count = 5
 	pinger.Timeout = 10 * time.Second
-	pinger.Source = n3ueSelf.N3ueInfo.DnIPAddr
+	if n3ueSelf.N3ueInfo.DnIPAddr != "" {
+		pinger.Source = n3ueSelf.N3ueInfo.DnIPAddr
+	}
 
 	time.Sleep(3 * time.Second)
 

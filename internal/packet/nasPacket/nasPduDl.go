@@ -11,7 +11,6 @@ import (
 )
 
 func DecodePDUSessionEstablishmentAccept(ue *n3ue_security.RanUeContext, length int, buffer []byte) (*nas.Message, error) {
-
 	if length == 0 {
 		return nil, fmt.Errorf("Empty buffer")
 	}

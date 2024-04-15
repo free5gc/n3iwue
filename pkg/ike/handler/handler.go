@@ -6,6 +6,9 @@ import (
 	"math/big"
 	"net"
 
+	"github.com/sirupsen/logrus"
+	"golang.org/x/sys/unix"
+
 	n3iwfContext "github.com/free5gc/n3iwf/pkg/context"
 	"github.com/free5gc/n3iwf/pkg/ike/handler"
 	ike_message "github.com/free5gc/n3iwf/pkg/ike/message"
@@ -16,13 +19,10 @@ import (
 	context "github.com/free5gc/n3iwue/pkg/context"
 	"github.com/free5gc/n3iwue/pkg/factory"
 	"github.com/free5gc/n3iwue/pkg/ike/xfrm"
+	"github.com/free5gc/nas"
 	"github.com/free5gc/nas/nasMessage"
 	"github.com/free5gc/nas/security"
 	"github.com/free5gc/util/ueauth"
-	"golang.org/x/sys/unix"
-
-	"github.com/free5gc/nas"
-	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -473,6 +473,7 @@ func HandleIKEAUTH(udpConn *net.UDPConn, n3iwfAddr, ueAddr *net.UDPAddr, message
 		n3ueSelf.CurrentState <- uint8(context.Registration_CreateNWUCP)
 	}
 }
+
 func HandleCREATECHILDSA(udpConn *net.UDPConn, n3iwfAddr, ueAddr *net.UDPAddr, message *ike_message.IKEMessage) {
 	ikeLog.Tracef("Handle CreateChildSA")
 
@@ -573,7 +574,6 @@ func HandleCREATECHILDSA(udpConn *net.UDPConn, n3iwfAddr, ueAddr *net.UDPAddr, m
 		childSecurityAssociationContextUserPlane,
 		responseTrafficSelectorResponder.TrafficSelectors[0],
 		responseTrafficSelectorInitiator.TrafficSelectors[0])
-
 	if err != nil {
 		ikeLog.Errorf("Parse IP address to child security association failed: %+v", err)
 		return

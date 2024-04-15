@@ -4,18 +4,17 @@ import (
 	"math/big"
 	"net"
 
+	"github.com/vishvananda/netlink"
+
 	"github.com/free5gc/n3iwf/pkg/context"
 	"github.com/free5gc/n3iwf/pkg/ike/message"
 	"github.com/free5gc/n3iwue/internal/qos"
 	"github.com/free5gc/n3iwue/internal/security"
 	"github.com/free5gc/n3iwue/pkg/factory"
 	"github.com/free5gc/nas/nasType"
-	"github.com/vishvananda/netlink"
 )
 
-var (
-	n3ueContext = N3UE{}
-)
+var n3ueContext = N3UE{}
 
 // N3UE state
 const (

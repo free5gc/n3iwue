@@ -4,10 +4,11 @@ import (
 	"net"
 	"runtime/debug"
 
+	"github.com/sirupsen/logrus"
+
 	ike_message "github.com/free5gc/n3iwf/pkg/ike/message"
 	"github.com/free5gc/n3iwue/internal/logger"
 	"github.com/free5gc/n3iwue/pkg/ike/handler"
-	"github.com/sirupsen/logrus"
 )
 
 var ikeLog *logrus.Entry

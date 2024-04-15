@@ -22,7 +22,8 @@ func encapNasMsgToEnvelope(nasPDU []byte) []byte {
 }
 
 func NASEncode(ue *RanUeContext, msg *nas.Message, securityContextAvailable bool, newSecurityContext bool) (
-	payload []byte, err error) {
+	payload []byte, err error,
+) {
 	var sequenceNumber uint8
 	if ue == nil {
 		err = fmt.Errorf("amfUe is nil")
@@ -82,7 +83,8 @@ func NASEncode(ue *RanUeContext, msg *nas.Message, securityContextAvailable bool
 }
 
 func NASEnvelopeEncode(ue *RanUeContext, msg *nas.Message, securityContextAvailable bool, newSecurityContext bool) (
-	payload []byte, err error) {
+	payload []byte, err error,
+) {
 	var sequenceNumber uint8
 	if ue == nil {
 		err = fmt.Errorf("amfUe is nil")
@@ -105,7 +107,6 @@ func NASEnvelopeEncode(ue *RanUeContext, msg *nas.Message, securityContextAvaila
 		sequenceNumber = ue.ULCount.SQN()
 
 		payload, err = msg.PlainNasEncode()
-
 		if err != nil {
 			return
 		}

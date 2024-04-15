@@ -5,13 +5,14 @@ import (
 	"runtime/debug"
 
 	"github.com/davecgh/go-spew/spew"
+	"github.com/sirupsen/logrus"
+
 	"github.com/free5gc/n3iwue/internal/logger"
 	"github.com/free5gc/n3iwue/internal/nwucp/handler"
 	"github.com/free5gc/n3iwue/internal/packet/ngapPacket"
 	n3ue_security "github.com/free5gc/n3iwue/internal/security"
 	context "github.com/free5gc/n3iwue/pkg/context"
 	"github.com/free5gc/nas"
-	"github.com/sirupsen/logrus"
 )
 
 var naslog *logrus.Entry
@@ -48,5 +49,4 @@ func Dispatch(conn net.Conn, nasEnv []byte) {
 	case nas.MsgTypeDLNASTransport:
 		handler.HandleDLNASTransport(n3ueSelf, nasMsg)
 	}
-
 }

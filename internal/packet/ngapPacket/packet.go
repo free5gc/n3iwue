@@ -1,12 +1,10 @@
 package ngapPacket
 
 import (
-
 	// "github.com/free5gc/openapi/models"
 	"encoding/binary"
 
 	"github.com/free5gc/n3iwue/internal/security"
-
 	"github.com/free5gc/nas"
 	"github.com/free5gc/nas/nasMessage"
 	"github.com/free5gc/ngap"
@@ -43,7 +41,8 @@ func GetInitialContextSetupResponse(amfUeNgapID int64, ranUeNgapID int64) ([]byt
 }
 
 func GetInitialContextSetupResponseForServiceRequest(
-	amfUeNgapID int64, ranUeNgapID int64, ipv4 string) ([]byte, error) {
+	amfUeNgapID int64, ranUeNgapID int64, ipv4 string,
+) ([]byte, error) {
 	message := BuildInitialContextSetupResponse(amfUeNgapID, ranUeNgapID, ipv4, nil)
 	return ngap.Encoder(message)
 }
@@ -54,7 +53,8 @@ func GetPDUSessionResourceSetupResponse(pduSessionId int64, amfUeNgapID int64, r
 }
 
 func EncodeNasPduWithSecurity(ue *security.RanUeContext, pdu []byte, securityHeaderType uint8,
-	securityContextAvailable, newSecurityContext bool) ([]byte, error) {
+	securityContextAvailable, newSecurityContext bool,
+) ([]byte, error) {
 	m := nas.NewMessage()
 	err := m.PlainNasDecode(&pdu)
 	if err != nil {
@@ -65,11 +65,11 @@ func EncodeNasPduWithSecurity(ue *security.RanUeContext, pdu []byte, securityHea
 		SecurityHeaderType:    securityHeaderType,
 	}
 	return security.NASEncode(ue, m, securityContextAvailable, newSecurityContext)
-
 }
 
 func EncodeNasPduInEnvelopeWithSecurity(ue *security.RanUeContext, pdu []byte, securityHeaderType uint8,
-	securityContextAvailable, newSecurityContext bool) ([]byte, error) {
+	securityContextAvailable, newSecurityContext bool,
+) ([]byte, error) {
 	m := nas.NewMessage()
 	err := m.PlainNasDecode(&pdu)
 	if err != nil {
@@ -80,7 +80,6 @@ func EncodeNasPduInEnvelopeWithSecurity(ue *security.RanUeContext, pdu []byte, s
 		SecurityHeaderType:    securityHeaderType,
 	}
 	return security.NASEnvelopeEncode(ue, m, securityContextAvailable, newSecurityContext)
-
 }
 
 func DecapNasPduFromEnvelope(envelop []byte) ([]byte, int) {
@@ -109,15 +108,16 @@ func GetPDUSessionResourceReleaseResponse(amfUeNgapID int64, ranUeNgapID int64) 
 	message := BuildPDUSessionResourceReleaseResponseForReleaseTest(amfUeNgapID, ranUeNgapID)
 	return ngap.Encoder(message)
 }
+
 func GetPathSwitchRequest(amfUeNgapID int64, ranUeNgapID int64) ([]byte, error) {
 	message := BuildPathSwitchRequest(amfUeNgapID, ranUeNgapID)
-	message.InitiatingMessage.Value.PathSwitchRequest.ProtocolIEs.List =
-		message.InitiatingMessage.Value.PathSwitchRequest.ProtocolIEs.List[0:5]
+	message.InitiatingMessage.Value.PathSwitchRequest.ProtocolIEs.List = message.InitiatingMessage.Value.PathSwitchRequest.ProtocolIEs.List[0:5]
 	return ngap.Encoder(message)
 }
 
 func GetHandoverRequired(
-	amfUeNgapID int64, ranUeNgapID int64, targetGNBID []byte, targetCellID []byte) ([]byte, error) {
+	amfUeNgapID int64, ranUeNgapID int64, targetGNBID []byte, targetCellID []byte,
+) ([]byte, error) {
 	message := BuildHandoverRequired(amfUeNgapID, ranUeNgapID, targetGNBID, targetCellID)
 	return ngap.Encoder(message)
 }

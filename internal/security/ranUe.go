@@ -68,7 +68,8 @@ func GetAuthSubscription(k, sqn, amf, opc, op string) models.AuthenticationSubsc
 }
 
 func NewRanUeContext(supi string, ranUeNgapId int64, cipheringAlg, integrityAlg uint8,
-	AnType models.AccessType) *RanUeContext {
+	AnType models.AccessType,
+) *RanUeContext {
 	ue := RanUeContext{}
 	ue.RanUeNgapId = ranUeNgapId
 	ue.Supi = supi
@@ -79,8 +80,8 @@ func NewRanUeContext(supi string, ranUeNgapId int64, cipheringAlg, integrityAlg 
 }
 
 func (ue *RanUeContext) DeriveRESstarAndSetKey(
-	authSubs models.AuthenticationSubscription, rand []byte, snName string) []byte {
-
+	authSubs models.AuthenticationSubscription, rand []byte, snName string,
+) []byte {
 	sqn, err := hex.DecodeString(authSubs.SequenceNumber)
 	if err != nil {
 		fatal.Fatalf("DecodeString error: %+v", err)
@@ -144,17 +145,14 @@ func (ue *RanUeContext) DeriveRESstarAndSetKey(
 
 	ue.DerivateKamf(key, snName, sqn, ak)
 	ue.DerivateAlgKey()
-	kdfVal_for_resStar, err :=
-		ueauth.GetKDFValue(key, FC, P0, ueauth.KDFLen(P0), P1, ueauth.KDFLen(P1), P2, ueauth.KDFLen(P2))
+	kdfVal_for_resStar, err := ueauth.GetKDFValue(key, FC, P0, ueauth.KDFLen(P0), P1, ueauth.KDFLen(P1), P2, ueauth.KDFLen(P2))
 	if err != nil {
 		fatal.Fatalf("GetKDFValue error: %+v", err)
 	}
 	return kdfVal_for_resStar[len(kdfVal_for_resStar)/2:]
-
 }
 
 func (ue *RanUeContext) DerivateKamf(key []byte, snName string, SQN, AK []byte) {
-
 	FC := ueauth.FC_FOR_KAUSF_DERIVATION
 	P0 := []byte(snName)
 	SQNxorAK := make([]byte, 6)

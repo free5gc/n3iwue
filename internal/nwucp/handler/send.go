@@ -28,7 +28,8 @@ func SendNasMsg(ue *security.RanUeContext, conn net.Conn, msg []byte) {
 }
 
 func SendPduSessionEstablishmentRequest(ue *security.RanUeContext,
-	conn net.Conn, pduSessionId uint8) error {
+	conn net.Conn, pduSessionId uint8,
+) error {
 	sst, err := strconv.ParseInt(factory.N3ueInfo.SmPolicy[0].SNSSAI.SST, 16, 0)
 	if err != nil {
 		return err

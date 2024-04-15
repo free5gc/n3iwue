@@ -5,13 +5,14 @@ import (
 	"net"
 	"time"
 
+	"github.com/sirupsen/logrus"
+	"github.com/vishvananda/netlink"
+
 	"github.com/free5gc/n3iwue/internal/gre"
 	"github.com/free5gc/n3iwue/internal/logger"
 	"github.com/free5gc/n3iwue/internal/packet/nasPacket"
 	context "github.com/free5gc/n3iwue/pkg/context"
 	"github.com/free5gc/nas"
-	"github.com/sirupsen/logrus"
-	"github.com/vishvananda/netlink"
 )
 
 var naslog *logrus.Entry

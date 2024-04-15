@@ -6,10 +6,11 @@ import (
 	"net"
 	"runtime/debug"
 
+	"github.com/sirupsen/logrus"
+
 	"github.com/free5gc/n3iwue/internal/logger"
 	"github.com/free5gc/n3iwue/internal/nwucp"
 	context "github.com/free5gc/n3iwue/pkg/context"
-	"github.com/sirupsen/logrus"
 )
 
 var nwucpLog *logrus.Entry
@@ -19,7 +20,6 @@ func init() {
 }
 
 func Run() error {
-
 	n3ueSelf := context.N3UESelf()
 
 	var errChan chan error
@@ -41,14 +41,12 @@ func serveConn(n3ueSelf *context.N3UE, errChan chan<- error) {
 			// Print stack for panic to log. Fatalf() will let program exit.
 			logger.NWuCPLog.Fatalf("panic: %v\n%s", p, string(debug.Stack()))
 		}
-
 	}()
 
 	localTCPAddr := &net.TCPAddr{
 		IP: n3ueSelf.UEInnerAddr.IP,
 	}
 	tcpConnWithN3IWF, err := net.DialTCP("tcp", localTCPAddr, n3ueSelf.N3iwfNASAddr)
-
 	if err != nil {
 		nwucpLog.Error(err)
 		errChan <- errors.New("nwup serveConn failed")

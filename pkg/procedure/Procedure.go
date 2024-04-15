@@ -5,13 +5,14 @@ import (
 	"runtime/debug"
 	"time"
 
+	"github.com/go-ping/ping"
+	"github.com/sirupsen/logrus"
+
 	"github.com/free5gc/n3iwue/internal/logger"
 	nwucp_handler "github.com/free5gc/n3iwue/internal/nwucp/handler"
 	nwucp_service "github.com/free5gc/n3iwue/internal/nwucp/service"
 	context "github.com/free5gc/n3iwue/pkg/context"
 	"github.com/free5gc/n3iwue/pkg/ike/handler"
-	"github.com/go-ping/ping"
-	"github.com/sirupsen/logrus"
 )
 
 var (

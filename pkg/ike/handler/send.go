@@ -18,7 +18,7 @@ func SendIKESAINIT() {
 
 	n3ueContext := context.N3UESelf()
 
-	n3ueContext.IkeInitiatorSPI = uint64(factory.N3ueInfo.IkeSaSPI)
+	n3ueContext.IkeInitiatorSPI = factory.N3ueInfo.IkeSaSPI
 	ikeMessage := new(message.IKEMessage)
 	ikeMessage.BuildIKEHeader(n3ueContext.IkeInitiatorSPI, 0, message.IKE_SA_INIT, message.InitiatorBitCheck, 0)
 
@@ -61,7 +61,13 @@ func SendIKESAINIT() {
 	n3iwf_handler.SendIKEMessageToUE(n3ueContext.N3IWFUe.IKEConnection.Conn, n3ueContext.N3IWFUe.IKEConnection.UEAddr,
 		n3ueContext.N3IWFUe.IKEConnection.N3IWFAddr, ikeMessage)
 
-	realMessage1, _ := ikeMessage.Encode()
+	var realMessage1 []byte
+	var err error
+	if realMessage1, err = ikeMessage.Encode(); err != nil {
+		ikeLog.Errorf("Write config file: %+v", err)
+		return
+	}
+
 	ikeSecurityAssociation := &n3iwfContext.IKESecurityAssociation{
 		LocalUnsignedAuthentication: realMessage1,
 	}
@@ -88,7 +94,7 @@ func SendIKEAUTH() {
 	n3ueContext.SecurityAssociation = ikePayload.BuildSecurityAssociation()
 	// Proposal 1
 	spi := make([]byte, 4)
-	binary.BigEndian.PutUint32(spi, uint32(factory.N3ueInfo.IPSecSaCpSPI))
+	binary.BigEndian.PutUint32(spi, factory.N3ueInfo.IPSecSaCpSPI)
 	n3ueContext.Proposal = n3ueContext.SecurityAssociation.Proposals.BuildProposal(1, message.TypeESP, spi)
 	// ENCR
 	n3ueContext.Proposal.EncryptionAlgorithm.BuildTransform(message.TypeEncryptionAlgorithm, message.ENCR_AES_CBC,

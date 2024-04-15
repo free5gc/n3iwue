@@ -117,7 +117,7 @@ func HandleIKEAUTH(udpConn *net.UDPConn, n3iwfAddr, ueAddr *net.UDPAddr, message
 
 	// var eapIdentifier uint8
 	var eapReq *ike_message.EAP
-	var eapExpanded *ike_message.EAPExpanded
+
 	// AUTH, SAr2, TSi, Tsr, N(NAS_IP_ADDRESS), N(NAS_TCP_PORT)
 	var responseSecurityAssociation *ike_message.SecurityAssociation
 	var responseTrafficSelectorInitiator *ike_message.TrafficSelectorInitiator
@@ -200,7 +200,7 @@ func HandleIKEAUTH(udpConn *net.UDPConn, n3iwfAddr, ueAddr *net.UDPAddr, message
 		eap := ikePayload.BuildEAP(ike_message.EAPCodeResponse, eapIdentifier)
 		eap.EAPTypeData.BuildEAPExpanded(ike_message.VendorID3GPP, ike_message.VendorTypeEAP5G, eapVendorTypeData)
 
-		if err := EncryptProcedure(ikeSecurityAssociation, ikePayload, ikeMessage); err != nil {
+		if err = EncryptProcedure(ikeSecurityAssociation, ikePayload, ikeMessage); err != nil {
 			ikeLog.Errorf("Encrypt IKE message failed: %+v", err)
 			return
 		}
@@ -210,13 +210,14 @@ func HandleIKEAUTH(udpConn *net.UDPConn, n3iwfAddr, ueAddr *net.UDPAddr, message
 
 		// TS 33.102
 		// Sync the SQN for security in config
-		if err := factory.SyncConfigSQN(1); err != nil {
+		if err = factory.SyncConfigSQN(1); err != nil {
 			ikeLog.Errorf("syncConfigSQN: %+v", err)
 			return
 		}
 		ikeSecurityAssociation.State++
 
 	case EAP_RegistrationRequest:
+		var eapExpanded *ike_message.EAPExpanded
 		eapExpanded, ok = eapReq.EAPTypeData[0].(*ike_message.EAPExpanded)
 		if !ok {
 			ikeLog.Error("The EAP data is not an EAP expended.")
@@ -228,7 +229,7 @@ func HandleIKEAUTH(udpConn *net.UDPConn, n3iwfAddr, ueAddr *net.UDPAddr, message
 		// Decode NAS - Authentication Request
 		nasData := eapExpanded.VendorData[4:]
 		decodedNAS = new(nas.Message)
-		if err := decodedNAS.PlainNasDecode(&nasData); err != nil {
+		if err = decodedNAS.PlainNasDecode(&nasData); err != nil {
 			ikeLog.Errorf("Decode plain NAS fail: %+v", err)
 			return
 		}
@@ -289,7 +290,7 @@ func HandleIKEAUTH(udpConn *net.UDPConn, n3iwfAddr, ueAddr *net.UDPAddr, message
 			n3ueSelf.N3IWFUe.IKEConnection.N3IWFAddr, ikeMessage)
 		ikeSecurityAssociation.State++
 	case EAP_Authentication:
-		eapExpanded, ok = eapReq.EAPTypeData[0].(*ike_message.EAPExpanded)
+		_, ok = eapReq.EAPTypeData[0].(*ike_message.EAPExpanded)
 		if !ok {
 			ikeLog.Error("The EAP data is not an EAP expended.")
 			return
@@ -370,7 +371,7 @@ func HandleIKEAUTH(udpConn *net.UDPConn, n3iwfAddr, ueAddr *net.UDPAddr, message
 			ikeLog.Error("Encode IKE payload failed.")
 			return
 		}
-		if _, err := pseudorandomFunction.Write(idPayloadData[4:]); err != nil {
+		if _, err = pseudorandomFunction.Write(idPayloadData[4:]); err != nil {
 			ikeLog.Errorf("Pseudorandom function write error: %+v", err)
 			return
 		}
@@ -384,7 +385,7 @@ func HandleIKEAUTH(udpConn *net.UDPConn, n3iwfAddr, ueAddr *net.UDPAddr, message
 			ikeLog.Error("Get an unsupported pseudorandom funcion. This may imply an unsupported transform is chosen.")
 			return
 		}
-		if _, err := pseudorandomFunction.Write([]byte("Key Pad for IKEv2")); err != nil {
+		if _, err = pseudorandomFunction.Write([]byte("Key Pad for IKEv2")); err != nil {
 			ikeLog.Errorf("Pseudorandom function write error: %+v", err)
 			return
 		}
@@ -395,7 +396,7 @@ func HandleIKEAUTH(udpConn *net.UDPConn, n3iwfAddr, ueAddr *net.UDPAddr, message
 			return
 		}
 		pseudorandomFunction.Reset()
-		if _, err := pseudorandomFunction.Write(ikeSecurityAssociation.LocalUnsignedAuthentication); err != nil {
+		if _, err = pseudorandomFunction.Write(ikeSecurityAssociation.LocalUnsignedAuthentication); err != nil {
 			ikeLog.Errorf("Pseudorandom function write error: %+v", err)
 			return
 		}
@@ -433,7 +434,7 @@ func HandleIKEAUTH(udpConn *net.UDPConn, n3iwfAddr, ueAddr *net.UDPAddr, message
 		// Select TCP traffic
 		childSecurityAssociationContext.SelectedIPProtocol = unix.IPPROTO_TCP
 
-		if err := GenerateKeyForChildSA(ikeSecurityAssociation, childSecurityAssociationContext); err != nil {
+		if err = GenerateKeyForChildSA(ikeSecurityAssociation, childSecurityAssociationContext); err != nil {
 			ikeLog.Errorf("Generate key for child SA failed: %+v", err)
 			return
 		}
@@ -513,7 +514,8 @@ func HandleCREATECHILDSA(udpConn *net.UDPConn, n3iwfAddr, ueAddr *net.UDPAddr, m
 			notification := ikePayload.(*ike_message.Notification)
 			if notification.NotifyMessageType == ike_message.Vendor3GPPNotifyType5G_QOS_INFO {
 				ikeLog.Info("Received Qos Flow settings")
-				if info, err := qos.Parse5GQoSInfoNotify(notification); err == nil {
+				var info *qos.PDUQoSInfo
+				if info, err = qos.Parse5GQoSInfoNotify(notification); err == nil {
 					QoSInfo = info
 					ikeLog.Infof("NotificationData:%+v", notification.NotificationData)
 					if QoSInfo.IsDSCPSpecified {
@@ -554,7 +556,7 @@ func HandleCREATECHILDSA(udpConn *net.UDPConn, n3iwfAddr, ueAddr *net.UDPAddr, m
 	ikeSecurityAssociation.ConcatenatedNonce = append(ikeSecurityAssociation.ConcatenatedNonce, localNonce...)
 	ikePayload.BuildNonce(localNonce)
 
-	if err := EncryptProcedure(ikeSecurityAssociation, ikePayload, ikeMessage); err != nil {
+	if err = EncryptProcedure(ikeSecurityAssociation, ikePayload, ikeMessage); err != nil {
 		ikeLog.Error(err)
 		return
 	}
@@ -581,7 +583,7 @@ func HandleCREATECHILDSA(udpConn *net.UDPConn, n3iwfAddr, ueAddr *net.UDPAddr, m
 	// Select GRE traffic
 	childSecurityAssociationContextUserPlane.SelectedIPProtocol = unix.IPPROTO_GRE
 
-	if err := GenerateKeyForChildSA(ikeSecurityAssociation, childSecurityAssociationContextUserPlane); err != nil {
+	if err = GenerateKeyForChildSA(ikeSecurityAssociation, childSecurityAssociationContextUserPlane); err != nil {
 		ikeLog.Errorf("Generate key for child SA failed: %+v", err)
 		return
 	}
@@ -625,7 +627,7 @@ func HandleCREATECHILDSA(udpConn *net.UDPConn, n3iwfAddr, ueAddr *net.UDPAddr, m
 func HandleInformational(udpConn *net.UDPConn, n3iwfAddr, ueAddr *net.UDPAddr, message *ike_message.IKEMessage) {
 	ikeLog.Infoln("Handle Informational")
 
-	n3ueSelf := context.N3UESelf()
+	n3ueSelf = context.N3UESelf()
 
 	if len(message.Payloads) == 0 {
 		ikeLog.Tracef("Receive DPD message")

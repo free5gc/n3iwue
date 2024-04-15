@@ -5,20 +5,16 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 
 	n3iwf_context "github.com/free5gc/n3iwf/pkg/context"
 	"github.com/free5gc/n3iwf/pkg/ike/handler"
-	"github.com/free5gc/n3iwue/internal/logger"
 	context "github.com/free5gc/n3iwue/pkg/context"
 )
 
 // Log
-var ikeLog *logrus.Entry
 
 func init() {
-	ikeLog = logger.IKELog
 }
 
 func ApplyXFRMRule(ue_is_initiator bool, ifId uint32, childSecurityAssociation *n3iwf_context.ChildSecurityAssociation) error {
@@ -163,7 +159,7 @@ func SetupIPsecXfrmi(xfrmIfaceName, parentIfaceName string, xfrmIfaceId uint32, 
 	}
 
 	// ip link add
-	if err := netlink.LinkAdd(link); err != nil {
+	if err = netlink.LinkAdd(link); err != nil {
 		return nil, err
 	}
 

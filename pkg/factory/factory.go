@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"strconv"
 
 	"gopkg.in/yaml.v3"
@@ -48,11 +49,11 @@ func WriteConfigWithKey(key, value string) error {
 		root yaml.Node
 	)
 
-	if data, err = ioutil.ReadFile(filePath); err != nil {
+	if data, err = os.ReadFile(filePath); err != nil {
 		return err
 	}
 
-	if err := yaml.Unmarshal(data, &root); err != nil {
+	if err = yaml.Unmarshal(data, &root); err != nil {
 		return err
 	}
 
@@ -66,7 +67,7 @@ func WriteConfigWithKey(key, value string) error {
 		return err
 	}
 
-	if err := ioutil.WriteFile(filePath, data, 0); err != nil {
+	if err = os.WriteFile(filePath, data, 0); err != nil {
 		return err
 	}
 
@@ -104,7 +105,7 @@ func SyncConfigSQN(offset uint8) error {
 	if sqn, err := strconv.ParseInt(N3ueInfo.Security.SQN, 16, 0); err == nil {
 		sqn = sqn + int64(offset)
 		logger.CfgLog.Infof("Write SQN=%x into config file", sqn)
-		if err := WriteConfigWithKey("SQN", fmt.Sprintf("%x", sqn)); err != nil {
+		if err = WriteConfigWithKey("SQN", fmt.Sprintf("%x", sqn)); err != nil {
 			return fmt.Errorf("Write config file: %+v", err)
 		}
 	} else {

@@ -31,8 +31,7 @@ func Run() error {
 	}
 
 	// Listen and serve
-	var errChan chan error
-	errChan = make(chan error)
+	errChan := make(chan error)
 
 	go listenAndServe(udpAddr, errChan)
 	if err, ok := <-errChan; ok {

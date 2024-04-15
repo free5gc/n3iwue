@@ -39,39 +39,37 @@ func StartProcedure() {
 
 	go func() {
 		for {
-			select {
-			case state := <-n3ueSelf.CurrentState:
-				switch state {
-				case context.Registration_IKEINIT:
-					handler.SendIKESAINIT()
-				case context.Registration_IKEAUTH:
-					handler.SendIKEAUTH()
-				case context.Registration_CreateNWUCP:
-					if err := nwucp_service.Run(); err != nil {
-						AppLog.Fatalf("Start nuwcp service failed: %+v", err)
-						return
-					}
-				case context.PduSessionEst:
-					AppLog.Info("Start PduSession Establishment")
-					done := false
-					for !done {
-						err := nwucp_handler.
-							SendPduSessionEstablishmentRequest(n3ueSelf.RanUeContext,
-								n3ueSelf.N3IWFUe.TCPConnection, n3ueSelf.PduSessionCount)
-						if err != nil {
-							AppLog.Errorf("Send PduSession Establishment Request failed: %+v", err)
-						} else {
-							done = true
-						}
-					}
-				case context.PduSessionCreated:
-					AppLog.Info("PduSession Created")
-					if err := TestConnectivity("8.8.8.8"); err != nil {
-						AppLog.Errorf("ping fail : %+v", err)
+			state := <-n3ueSelf.CurrentState
+			switch state {
+			case context.Registration_IKEINIT:
+				handler.SendIKESAINIT()
+			case context.Registration_IKEAUTH:
+				handler.SendIKEAUTH()
+			case context.Registration_CreateNWUCP:
+				if err := nwucp_service.Run(); err != nil {
+					AppLog.Fatalf("Start nuwcp service failed: %+v", err)
+					return
+				}
+			case context.PduSessionEst:
+				AppLog.Info("Start PduSession Establishment")
+				done := false
+				for !done {
+					err := nwucp_handler.
+						SendPduSessionEstablishmentRequest(n3ueSelf.RanUeContext,
+							n3ueSelf.N3IWFUe.TCPConnection, n3ueSelf.PduSessionCount)
+					if err != nil {
+						AppLog.Errorf("Send PduSession Establishment Request failed: %+v", err)
 					} else {
-						logger.NASLog.Infof("ULCount=%x, DLCount=%x", n3ueSelf.RanUeContext.ULCount.Get(), n3ueSelf.RanUeContext.DLCount.Get())
-						AppLog.Info("Keep connection with N3IWF until receive SIGINT or SIGTERM")
+						done = true
 					}
+				}
+			case context.PduSessionCreated:
+				AppLog.Info("PduSession Created")
+				if err := TestConnectivity("8.8.8.8"); err != nil {
+					AppLog.Errorf("ping fail : %+v", err)
+				} else {
+					logger.NASLog.Infof("ULCount=%x, DLCount=%x", n3ueSelf.RanUeContext.ULCount.Get(), n3ueSelf.RanUeContext.DLCount.Get())
+					AppLog.Info("Keep connection with N3IWF until receive SIGINT or SIGTERM")
 				}
 			}
 		}

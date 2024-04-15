@@ -43,7 +43,7 @@ func SetupGreTunnel(greIfaceName, parentIfaceName string, ueTunnelAddr, n3iwfTun
 
 	logger.AppLog.Infof("GRE Key Field: 0x%x", greKeyField)
 
-	if err := netlink.LinkAdd(newGRETunnel); err != nil {
+	if err = netlink.LinkAdd(newGRETunnel); err != nil {
 		return nil, err
 	}
 

@@ -176,7 +176,6 @@ func DecryptProcedure(ikeSecurityAssociation *context.IKESecurityAssociation, ik
 	}
 
 	return decryptedIKEPayload, nil
-
 }
 
 // [TS 24502] 9.3.2.2.2 EAP-Response/5G-NAS message
@@ -260,8 +259,8 @@ func BuildEAP5GANParameters() []byte {
 func ParseIPAddressInformationToChildSecurityAssociation(
 	childSecurityAssociation *context.ChildSecurityAssociation,
 	trafficSelectorLocal *message.IndividualTrafficSelector,
-	trafficSelectorRemote *message.IndividualTrafficSelector) error {
-
+	trafficSelectorRemote *message.IndividualTrafficSelector,
+) error {
 	if childSecurityAssociation == nil {
 		return errors.New("childSecurityAssociation is nil")
 	}

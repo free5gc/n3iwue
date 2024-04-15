@@ -142,7 +142,8 @@ func SendIKEMessageToN3IWF(udpConn *net.UDPConn, srcAddr, dstAddr *net.UDPAddr, 
 }
 
 func SendN3IWFInformationExchange(
-	n3ue *context.N3UE, payload ike_message.IKEPayloadContainer, ike_flag uint8) {
+	n3ue *context.N3UE, payload ike_message.IKEPayloadContainer, ike_flag uint8,
+) {
 	ikeSecurityAssociation := n3ue.N3IWFUe.N3IWFIKESecurityAssociation
 	responseIKEMessage := new(ike_message.IKEMessage)
 

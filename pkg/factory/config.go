@@ -8,8 +8,9 @@ import (
 
 	"github.com/asaskevich/govalidator"
 	"github.com/davecgh/go-spew/spew"
-	"github.com/free5gc/n3iwue/internal/logger"
 	"github.com/sirupsen/logrus"
+
+	"github.com/free5gc/n3iwue/internal/logger"
 )
 
 const (
@@ -213,7 +214,6 @@ func (n *N3UEInfo) GetSUPI() string {
 
 // TS 24.501 9.11.3.4
 func (n *N3UEInfo) BuildMSIN() []byte {
-
 	var msinBytes []byte
 	msin := n.IMSI.MSIN
 

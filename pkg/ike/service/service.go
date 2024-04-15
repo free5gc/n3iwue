@@ -6,14 +6,13 @@ import (
 	"runtime/debug"
 	"strings"
 
+	"github.com/sirupsen/logrus"
+
 	n3iwfContext "github.com/free5gc/n3iwf/pkg/context"
-
-	context "github.com/free5gc/n3iwue/pkg/context"
-
 	"github.com/free5gc/n3iwue/internal/logger"
+	context "github.com/free5gc/n3iwue/pkg/context"
 	"github.com/free5gc/n3iwue/pkg/factory"
 	"github.com/free5gc/n3iwue/pkg/ike"
-	"github.com/sirupsen/logrus"
 )
 
 var ikeLog *logrus.Entry

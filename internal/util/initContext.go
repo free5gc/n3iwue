@@ -1,6 +1,8 @@
 package util
 
 import (
+	"github.com/sirupsen/logrus"
+
 	n3iwfContext "github.com/free5gc/n3iwf/pkg/context"
 	"github.com/free5gc/n3iwue/internal/logger"
 	n3ue_security "github.com/free5gc/n3iwue/internal/security"
@@ -9,7 +11,6 @@ import (
 	"github.com/free5gc/nas/nasType"
 	"github.com/free5gc/nas/security"
 	"github.com/free5gc/openapi/models"
-	"github.com/sirupsen/logrus"
 )
 
 var contextLog *logrus.Entry
@@ -40,11 +41,9 @@ func InitN3UEContext() {
 		Len:    uint16(len(suci)),
 		Buffer: suci,
 	}
-
 }
 
 func getAuthSubscription() (authSubs models.AuthenticationSubscription) {
-
 	authSubs.PermanentKey = &models.PermanentKey{
 		PermanentKeyValue: factory.N3ueInfo.Security.K,
 	}

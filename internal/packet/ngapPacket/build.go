@@ -18,7 +18,6 @@ func init() {
 }
 
 func BuildNGSetupRequest() (pdu ngapType.NGAPPDU) {
-
 	pdu.Present = ngapType.NGAPPDUPresentInitiatingMessage
 	pdu.InitiatingMessage = new(ngapType.InitiatingMessage)
 
@@ -115,7 +114,6 @@ func BuildNGSetupRequest() (pdu ngapType.NGAPPDU) {
 }
 
 func BuildNGReset(partOfNGInterface *ngapType.UEAssociatedLogicalNGConnectionList) (pdu ngapType.NGAPPDU) {
-
 	pdu.Present = ngapType.NGAPPDUPresentInitiatingMessage
 	pdu.InitiatingMessage = new(ngapType.InitiatingMessage)
 
@@ -167,7 +165,6 @@ func BuildNGReset(partOfNGInterface *ngapType.UEAssociatedLogicalNGConnectionLis
 }
 
 func BuildNGResetAcknowledge() (pdu ngapType.NGAPPDU) {
-
 	pdu.Present = ngapType.NGAPPDUPresentSuccessfulOutcome
 	pdu.SuccessfulOutcome = new(ngapType.SuccessfulOutcome)
 
@@ -199,8 +196,7 @@ func BuildNGResetAcknowledge() (pdu ngapType.NGAPPDU) {
 	uEAssociatedLogicalNGConnectionItem.RANUENGAPID = new(ngapType.RANUENGAPID)
 	uEAssociatedLogicalNGConnectionItem.RANUENGAPID.Value = 456
 
-	uEAssociatedLogicalNGConnectionList.List =
-		append(uEAssociatedLogicalNGConnectionList.List, uEAssociatedLogicalNGConnectionItem)
+	uEAssociatedLogicalNGConnectionList.List = append(uEAssociatedLogicalNGConnectionList.List, uEAssociatedLogicalNGConnectionItem)
 
 	nGResetAcknowledgeIEs.List = append(nGResetAcknowledgeIEs.List, ie)
 
@@ -209,7 +205,6 @@ func BuildNGResetAcknowledge() (pdu ngapType.NGAPPDU) {
 }
 
 func BuildInitialUEMessage(ranUeNgapID int64, nasPdu []byte, fiveGSTmsi string) (pdu ngapType.NGAPPDU) {
-
 	pdu.Present = ngapType.NGAPPDUPresentInitiatingMessage
 	pdu.InitiatingMessage = new(ngapType.InitiatingMessage)
 
@@ -332,7 +327,6 @@ func BuildInitialUEMessage(ranUeNgapID int64, nasPdu []byte, fiveGSTmsi string) 
 }
 
 func BuildErrorIndication() (pdu ngapType.NGAPPDU) {
-
 	pdu.Present = ngapType.NGAPPDUPresentInitiatingMessage
 	pdu.InitiatingMessage = new(ngapType.InitiatingMessage)
 
@@ -400,15 +394,13 @@ func BuildErrorIndication() (pdu ngapType.NGAPPDU) {
 	criticalityDiagnosticsIEItem.IEID.Value = ngapType.ProtocolIEIDAMFUENGAPID
 	criticalityDiagnosticsIEItem.TypeOfError.Value = ngapType.TypeOfErrorPresentMissing
 
-	criticalityDiagnostics.IEsCriticalityDiagnostics.List =
-		append(criticalityDiagnostics.IEsCriticalityDiagnostics.List, criticalityDiagnosticsIEItem)
+	criticalityDiagnostics.IEsCriticalityDiagnostics.List = append(criticalityDiagnostics.IEsCriticalityDiagnostics.List, criticalityDiagnosticsIEItem)
 	errorIndicationIEs.List = append(errorIndicationIEs.List, ie)
 
 	return pdu
 }
 
 func BuildUEContextReleaseRequest(amfUeNgapID, ranUeNgapID int64, pduSessionIDList []int64) (pdu ngapType.NGAPPDU) {
-
 	pdu.Present = ngapType.NGAPPDUPresentInitiatingMessage
 	pdu.InitiatingMessage = new(ngapType.InitiatingMessage)
 
@@ -483,7 +475,6 @@ func BuildUEContextReleaseRequest(amfUeNgapID, ranUeNgapID int64, pduSessionIDLi
 }
 
 func BuildUEContextReleaseComplete(amfUeNgapID, ranUeNgapID int64, pduSessionIDList []int64) (pdu ngapType.NGAPPDU) {
-
 	pdu.Present = ngapType.NGAPPDUPresentSuccessfulOutcome
 	pdu.SuccessfulOutcome = new(ngapType.SuccessfulOutcome)
 
@@ -570,7 +561,6 @@ func BuildUEContextReleaseComplete(amfUeNgapID, ranUeNgapID int64, pduSessionIDL
 }
 
 func BuildUEContextModificationResponse(amfUeNgapID, ranUeNgapID int64) (pdu ngapType.NGAPPDU) {
-
 	pdu.Present = ngapType.NGAPPDUPresentSuccessfulOutcome
 	pdu.SuccessfulOutcome = new(ngapType.SuccessfulOutcome)
 
@@ -650,7 +640,6 @@ func BuildUEContextModificationResponse(amfUeNgapID, ranUeNgapID int64) (pdu nga
 }
 
 func BuildUplinkNasTransport(amfUeNgapID, ranUeNgapID int64, nasPdu []byte) (pdu ngapType.NGAPPDU) {
-
 	pdu.Present = ngapType.NGAPPDUPresentInitiatingMessage
 	pdu.InitiatingMessage = new(ngapType.InitiatingMessage)
 
@@ -728,8 +717,8 @@ func BuildUplinkNasTransport(amfUeNgapID, ranUeNgapID int64, nasPdu []byte) (pdu
 }
 
 func BuildInitialContextSetupResponse(amfUeNgapID, ranUeNgapID int64, ipv4 string,
-	pduSessionFailedList *ngapType.PDUSessionResourceFailedToSetupListCxtRes) (pdu ngapType.NGAPPDU) {
-
+	pduSessionFailedList *ngapType.PDUSessionResourceFailedToSetupListCxtRes,
+) (pdu ngapType.NGAPPDU) {
 	pdu.Present = ngapType.NGAPPDUPresentSuccessfulOutcome
 	pdu.SuccessfulOutcome = new(ngapType.SuccessfulOutcome)
 
@@ -779,11 +768,9 @@ func BuildInitialContextSetupResponse(amfUeNgapID, ranUeNgapID int64, ipv4 strin
 	// PDU Session Resource Setup Response Item in PDU Session Resource Setup Response List
 	pDUSessionResourceSetupItemCxtRes := ngapType.PDUSessionResourceSetupItemCxtRes{}
 	pDUSessionResourceSetupItemCxtRes.PDUSessionID.Value = 10
-	pDUSessionResourceSetupItemCxtRes.PDUSessionResourceSetupResponseTransfer =
-		GetPDUSessionResourceSetupResponseTransfer(ipv4)
+	pDUSessionResourceSetupItemCxtRes.PDUSessionResourceSetupResponseTransfer = GetPDUSessionResourceSetupResponseTransfer(ipv4)
 
-	pDUSessionResourceSetupListCxtRes.List =
-		append(pDUSessionResourceSetupListCxtRes.List, pDUSessionResourceSetupItemCxtRes)
+	pDUSessionResourceSetupListCxtRes.List = append(pDUSessionResourceSetupListCxtRes.List, pDUSessionResourceSetupItemCxtRes)
 
 	initialContextSetupResponseIEs.List = append(initialContextSetupResponseIEs.List, ie)
 
@@ -801,7 +788,6 @@ func BuildInitialContextSetupResponse(amfUeNgapID, ranUeNgapID int64, ipv4 strin
 }
 
 func BuildInitialContextSetupFailure(amfUeNgapID, ranUeNgapID int64) (pdu ngapType.NGAPPDU) {
-
 	pdu.Present = ngapType.NGAPPDUPresentUnsuccessfulOutcome
 	pdu.UnsuccessfulOutcome = new(ngapType.UnsuccessfulOutcome)
 
@@ -853,8 +839,7 @@ func BuildInitialContextSetupFailure(amfUeNgapID, ranUeNgapID int64) (pdu ngapTy
 	pDUSessionResourceFailedToSetupItemCxtFail.PDUSessionID.Value = 10
 	pDUSessionResourceFailedToSetupItemCxtFail.PDUSessionResourceSetupUnsuccessfulTransfer = aper.OctetString("\x11\x22")
 
-	pDUSessionResourceFailedToSetupListCxtFail.List =
-		append(pDUSessionResourceFailedToSetupListCxtFail.List, pDUSessionResourceFailedToSetupItemCxtFail)
+	pDUSessionResourceFailedToSetupListCxtFail.List = append(pDUSessionResourceFailedToSetupListCxtFail.List, pDUSessionResourceFailedToSetupItemCxtFail)
 
 	initialContextSetupFailureIEs.List = append(initialContextSetupFailureIEs.List, ie)
 
@@ -877,7 +862,6 @@ func BuildInitialContextSetupFailure(amfUeNgapID, ranUeNgapID int64) (pdu ngapTy
 }
 
 func BuildPathSwitchRequest(sourceAmfUeNgapID, ranUeNgapID int64) (pdu ngapType.NGAPPDU) {
-
 	pdu.Present = ngapType.NGAPPDUPresentInitiatingMessage
 	pdu.InitiatingMessage = new(ngapType.InitiatingMessage)
 
@@ -979,8 +963,7 @@ func BuildPathSwitchRequest(sourceAmfUeNgapID, ranUeNgapID int64) (pdu ngapType.
 	pDUSessionResourceToBeSwitchedDLItem.PDUSessionID.Value = 10
 	pDUSessionResourceToBeSwitchedDLItem.PathSwitchRequestTransfer = GetPathSwitchRequestTransfer()
 
-	pDUSessionResourceToBeSwitchedDLList.List =
-		append(pDUSessionResourceToBeSwitchedDLList.List, pDUSessionResourceToBeSwitchedDLItem)
+	pDUSessionResourceToBeSwitchedDLList.List = append(pDUSessionResourceToBeSwitchedDLList.List, pDUSessionResourceToBeSwitchedDLItem)
 
 	pathSwitchRequestIEs.List = append(pathSwitchRequestIEs.List, ie)
 
@@ -996,11 +979,9 @@ func BuildPathSwitchRequest(sourceAmfUeNgapID, ranUeNgapID int64) (pdu ngapType.
 	// PDU Session Resource Failed to Setup Item (in PDU Session Resource Failed to Setup List)
 	pDUSessionResourceFailedToSetupItemPSReq := ngapType.PDUSessionResourceFailedToSetupItemPSReq{}
 	pDUSessionResourceFailedToSetupItemPSReq.PDUSessionID.Value = 11
-	pDUSessionResourceFailedToSetupItemPSReq.PathSwitchRequestSetupFailedTransfer =
-		GetPathSwitchRequestSetupFailedTransfer()
+	pDUSessionResourceFailedToSetupItemPSReq.PathSwitchRequestSetupFailedTransfer = GetPathSwitchRequestSetupFailedTransfer()
 
-	pDUSessionResourceFailedToSetupListPSReq.List =
-		append(pDUSessionResourceFailedToSetupListPSReq.List, pDUSessionResourceFailedToSetupItemPSReq)
+	pDUSessionResourceFailedToSetupListPSReq.List = append(pDUSessionResourceFailedToSetupListPSReq.List, pDUSessionResourceFailedToSetupItemPSReq)
 
 	pathSwitchRequestIEs.List = append(pathSwitchRequestIEs.List, ie)
 
@@ -1008,7 +989,6 @@ func BuildPathSwitchRequest(sourceAmfUeNgapID, ranUeNgapID int64) (pdu ngapType.
 }
 
 func BuildHandoverRequestAcknowledge(amfUeNgapID, ranUeNgapID int64) (pdu ngapType.NGAPPDU) {
-
 	pdu.Present = ngapType.NGAPPDUPresentSuccessfulOutcome
 	pdu.SuccessfulOutcome = new(ngapType.SuccessfulOutcome)
 
@@ -1046,7 +1026,7 @@ func BuildHandoverRequestAcknowledge(amfUeNgapID, ranUeNgapID int64) (pdu ngapTy
 
 	handoverRequestAcknowledgeIEs.List = append(handoverRequestAcknowledgeIEs.List, ie)
 
-	//PDU Session Resource Admitted List
+	// PDU Session Resource Admitted List
 	ie = ngapType.HandoverRequestAcknowledgeIEs{}
 	ie.Id.Value = ngapType.ProtocolIEIDPDUSessionResourceAdmittedList
 	ie.Criticality.Value = ngapType.CriticalityPresentIgnore
@@ -1055,7 +1035,7 @@ func BuildHandoverRequestAcknowledge(amfUeNgapID, ranUeNgapID int64) (pdu ngapTy
 
 	pDUSessionResourceAdmittedList := ie.Value.PDUSessionResourceAdmittedList
 
-	//PDU SessionResource Admittedy Item
+	// PDU SessionResource Admittedy Item
 	pDUSessionResourceAdmittedItem := ngapType.PDUSessionResourceAdmittedItem{}
 	pDUSessionResourceAdmittedItem.PDUSessionID.Value = 10
 	pDUSessionResourceAdmittedItem.HandoverRequestAcknowledgeTransfer = GetHandoverRequestAcknowledgeTransfer()
@@ -1086,7 +1066,7 @@ func BuildHandoverRequestAcknowledge(amfUeNgapID, ranUeNgapID int64) (pdu ngapTy
 		handoverRequestAcknowledgeIEs.List = append(handoverRequestAcknowledgeIEs.List, ie)
 	*/
 
-	//Target To Source TransparentContainer
+	// Target To Source TransparentContainer
 	ie = ngapType.HandoverRequestAcknowledgeIEs{}
 	ie.Id.Value = ngapType.ProtocolIEIDTargetToSourceTransparentContainer
 	ie.Criticality.Value = ngapType.CriticalityPresentReject
@@ -1103,7 +1083,6 @@ func BuildHandoverRequestAcknowledge(amfUeNgapID, ranUeNgapID int64) (pdu ngapTy
 }
 
 func BuildHandoverFailure(amfUeNgapID int64) (pdu ngapType.NGAPPDU) {
-
 	pdu.Present = ngapType.NGAPPDUPresentUnsuccessfulOutcome
 	pdu.UnsuccessfulOutcome = new(ngapType.UnsuccessfulOutcome)
 
@@ -1142,13 +1121,12 @@ func BuildHandoverFailure(amfUeNgapID int64) (pdu ngapType.NGAPPDU) {
 
 	handoverFailureIEs.List = append(handoverFailureIEs.List, ie)
 
-	//Criticality Diagnostics (optional)
+	// Criticality Diagnostics (optional)
 
 	return pdu
 }
 
 func BuildPDUSessionResourceReleaseResponse() (pdu ngapType.NGAPPDU) {
-
 	pdu.Present = ngapType.NGAPPDUPresentSuccessfulOutcome
 	pdu.SuccessfulOutcome = new(ngapType.SuccessfulOutcome)
 
@@ -1200,8 +1178,7 @@ func BuildPDUSessionResourceReleaseResponse() (pdu ngapType.NGAPPDU) {
 	pDUSessionResourceReleasedItemRelRes.PDUSessionID.Value = 10
 	pDUSessionResourceReleasedItemRelRes.PDUSessionResourceReleaseResponseTransfer = aper.OctetString("\x01\x02\x03")
 
-	pDUSessionResourceReleasedListRelRes.List =
-		append(pDUSessionResourceReleasedListRelRes.List, pDUSessionResourceReleasedItemRelRes)
+	pDUSessionResourceReleasedListRelRes.List = append(pDUSessionResourceReleasedListRelRes.List, pDUSessionResourceReleasedItemRelRes)
 
 	pDUSessionResourceReleaseResponseIEs.List = append(pDUSessionResourceReleaseResponseIEs.List, ie)
 
@@ -1233,7 +1210,6 @@ func BuildPDUSessionResourceReleaseResponse() (pdu ngapType.NGAPPDU) {
 }
 
 func BuildAMFConfigurationUpdateFailure() (pdu ngapType.NGAPPDU) {
-
 	pdu.Present = ngapType.NGAPPDUPresentUnsuccessfulOutcome
 	pdu.UnsuccessfulOutcome = new(ngapType.UnsuccessfulOutcome)
 
@@ -1266,11 +1242,9 @@ func BuildAMFConfigurationUpdateFailure() (pdu ngapType.NGAPPDU) {
 	//	TODO: Criticality Diagnostics (optional)
 
 	return pdu
-
 }
 
 func BuildUERadioCapabilityCheckRequest(amfUeNgapID, ranUeNgapID int64) (pdu ngapType.NGAPPDU) {
-
 	pdu.Present = ngapType.NGAPPDUPresentInitiatingMessage
 	pdu.InitiatingMessage = new(ngapType.InitiatingMessage)
 
@@ -1322,11 +1296,9 @@ func BuildUERadioCapabilityCheckRequest(amfUeNgapID, ranUeNgapID int64) (pdu nga
 	}
 
 	return pdu
-
 }
 
 func BuildUERadioCapabilityCheckResponse() (pdu ngapType.NGAPPDU) {
-
 	pdu.Present = ngapType.NGAPPDUPresentSuccessfulOutcome
 	pdu.SuccessfulOutcome = new(ngapType.SuccessfulOutcome)
 
@@ -1340,7 +1312,7 @@ func BuildUERadioCapabilityCheckResponse() (pdu ngapType.NGAPPDU) {
 	uERadioCapabilityCheckResponse := successfulOutcome.Value.UERadioCapabilityCheckResponse
 	uERadioCapabilityCheckResponseIEs := &uERadioCapabilityCheckResponse.ProtocolIEs
 
-	//AMF UE NGAP ID
+	// AMF UE NGAP ID
 	ie := ngapType.UERadioCapabilityCheckResponseIEs{}
 	ie.Id.Value = ngapType.ProtocolIEIDAMFUENGAPID
 	ie.Criticality.Value = ngapType.CriticalityPresentIgnore
@@ -1352,7 +1324,7 @@ func BuildUERadioCapabilityCheckResponse() (pdu ngapType.NGAPPDU) {
 
 	uERadioCapabilityCheckResponseIEs.List = append(uERadioCapabilityCheckResponseIEs.List, ie)
 
-	//RAN UE NGAP ID
+	// RAN UE NGAP ID
 	ie = ngapType.UERadioCapabilityCheckResponseIEs{}
 	ie.Id.Value = ngapType.ProtocolIEIDRANUENGAPID
 	ie.Criticality.Value = ngapType.CriticalityPresentIgnore
@@ -1364,7 +1336,7 @@ func BuildUERadioCapabilityCheckResponse() (pdu ngapType.NGAPPDU) {
 
 	uERadioCapabilityCheckResponseIEs.List = append(uERadioCapabilityCheckResponseIEs.List, ie)
 
-	//IMS Voice Support Indicator
+	// IMS Voice Support Indicator
 	ie = ngapType.UERadioCapabilityCheckResponseIEs{}
 	ie.Id.Value = ngapType.ProtocolIEIDIMSVoiceSupportIndicator
 	ie.Criticality.Value = ngapType.CriticalityPresentReject
@@ -1376,13 +1348,12 @@ func BuildUERadioCapabilityCheckResponse() (pdu ngapType.NGAPPDU) {
 
 	uERadioCapabilityCheckResponseIEs.List = append(uERadioCapabilityCheckResponseIEs.List, ie)
 
-	//TODO:Criticality Diagnostics (optional)
+	// TODO:Criticality Diagnostics (optional)
 
 	return pdu
 }
 
 func BuildHandoverCancel() (pdu ngapType.NGAPPDU) {
-
 	pdu.Present = ngapType.NGAPPDUPresentInitiatingMessage
 	pdu.InitiatingMessage = new(ngapType.InitiatingMessage)
 
@@ -1396,7 +1367,7 @@ func BuildHandoverCancel() (pdu ngapType.NGAPPDU) {
 	handoverCancel := initiatingMessage.Value.HandoverCancel
 	handoverCancelIEs := &handoverCancel.ProtocolIEs
 
-	//AMF UE NGAP ID
+	// AMF UE NGAP ID
 	ie := ngapType.HandoverCancelIEs{}
 	ie.Id.Value = ngapType.ProtocolIEIDAMFUENGAPID
 	ie.Criticality.Value = ngapType.CriticalityPresentReject
@@ -1408,7 +1379,7 @@ func BuildHandoverCancel() (pdu ngapType.NGAPPDU) {
 
 	handoverCancelIEs.List = append(handoverCancelIEs.List, ie)
 
-	//RAN UE NGAP ID
+	// RAN UE NGAP ID
 	ie = ngapType.HandoverCancelIEs{}
 	ie.Id.Value = ngapType.ProtocolIEIDRANUENGAPID
 	ie.Criticality.Value = ngapType.CriticalityPresentReject
@@ -1420,7 +1391,7 @@ func BuildHandoverCancel() (pdu ngapType.NGAPPDU) {
 
 	handoverCancelIEs.List = append(handoverCancelIEs.List, ie)
 
-	//Cause
+	// Cause
 	ie = ngapType.HandoverCancelIEs{}
 	ie.Id.Value = ngapType.ProtocolIEIDCause
 	ie.Criticality.Value = ngapType.CriticalityPresentIgnore
@@ -1436,6 +1407,7 @@ func BuildHandoverCancel() (pdu ngapType.NGAPPDU) {
 
 	return pdu
 }
+
 func BuildLocationReportingFailureIndication() (pdu ngapType.NGAPPDU) {
 	pdu.Present = ngapType.NGAPPDUPresentInitiatingMessage
 	pdu.InitiatingMessage = new(ngapType.InitiatingMessage)
@@ -1450,7 +1422,7 @@ func BuildLocationReportingFailureIndication() (pdu ngapType.NGAPPDU) {
 	locationReportingFailureIndication := initiatingMessage.Value.LocationReportingFailureIndication
 	locationReportingFailureIndicationIEs := &locationReportingFailureIndication.ProtocolIEs
 
-	//AMF UE NGAP ID
+	// AMF UE NGAP ID
 	ie := ngapType.LocationReportingFailureIndicationIEs{}
 	ie.Id.Value = ngapType.ProtocolIEIDAMFUENGAPID
 	ie.Criticality.Value = ngapType.CriticalityPresentReject
@@ -1462,7 +1434,7 @@ func BuildLocationReportingFailureIndication() (pdu ngapType.NGAPPDU) {
 
 	locationReportingFailureIndicationIEs.List = append(locationReportingFailureIndicationIEs.List, ie)
 
-	//RAN UE NGAP ID
+	// RAN UE NGAP ID
 	ie = ngapType.LocationReportingFailureIndicationIEs{}
 	ie.Id.Value = ngapType.ProtocolIEIDRANUENGAPID
 	ie.Criticality.Value = ngapType.CriticalityPresentReject
@@ -1474,7 +1446,7 @@ func BuildLocationReportingFailureIndication() (pdu ngapType.NGAPPDU) {
 
 	locationReportingFailureIndicationIEs.List = append(locationReportingFailureIndicationIEs.List, ie)
 
-	//Cause
+	// Cause
 	ie = ngapType.LocationReportingFailureIndicationIEs{}
 	ie.Id.Value = ngapType.ProtocolIEIDCause
 	ie.Criticality.Value = ngapType.CriticalityPresentIgnore
@@ -1492,7 +1464,6 @@ func BuildLocationReportingFailureIndication() (pdu ngapType.NGAPPDU) {
 }
 
 func BuildPDUSessionResourceSetupResponse(amfUeNgapID, ranUeNgapID int64, ipv4 string) (pdu ngapType.NGAPPDU) {
-
 	pdu.Present = ngapType.NGAPPDUPresentSuccessfulOutcome
 	pdu.SuccessfulOutcome = new(ngapType.SuccessfulOutcome)
 
@@ -1543,8 +1514,7 @@ func BuildPDUSessionResourceSetupResponse(amfUeNgapID, ranUeNgapID int64, ipv4 s
 	pDUSessionResourceSetupItemSURes := ngapType.PDUSessionResourceSetupItemSURes{}
 	pDUSessionResourceSetupItemSURes.PDUSessionID.Value = 10
 
-	pDUSessionResourceSetupItemSURes.PDUSessionResourceSetupResponseTransfer =
-		GetPDUSessionResourceSetupResponseTransfer(ipv4)
+	pDUSessionResourceSetupItemSURes.PDUSessionResourceSetupResponseTransfer = GetPDUSessionResourceSetupResponseTransfer(ipv4)
 
 	pDUSessionResourceSetupListSURes.List = append(pDUSessionResourceSetupListSURes.List, pDUSessionResourceSetupItemSURes)
 
@@ -1562,11 +1532,9 @@ func BuildPDUSessionResourceSetupResponse(amfUeNgapID, ranUeNgapID int64, ipv4 s
 	// PDU Session Resource Failed to Setup Item in PDU Sessuin Resource Failed to Setup List
 	pDUSessionResourceFailedToSetupItemSURes := ngapType.PDUSessionResourceFailedToSetupItemSURes{}
 	pDUSessionResourceFailedToSetupItemSURes.PDUSessionID.Value = 10
-	pDUSessionResourceFailedToSetupItemSURes.PDUSessionResourceSetupUnsuccessfulTransfer =
-		GetPDUSessionResourceSetupUnsucessfulTransfer()
+	pDUSessionResourceFailedToSetupItemSURes.PDUSessionResourceSetupUnsuccessfulTransfer = GetPDUSessionResourceSetupUnsucessfulTransfer()
 
-	pDUSessionResourceFailedToSetupListSURes.List =
-		append(pDUSessionResourceFailedToSetupListSURes.List, pDUSessionResourceFailedToSetupItemSURes)
+	pDUSessionResourceFailedToSetupListSURes.List = append(pDUSessionResourceFailedToSetupListSURes.List, pDUSessionResourceFailedToSetupItemSURes)
 
 	pDUSessionResourceSetupResponseIEs.List = append(pDUSessionResourceSetupResponseIEs.List, ie)
 	// Criticality Diagnostics (optional)
@@ -1574,7 +1542,6 @@ func BuildPDUSessionResourceSetupResponse(amfUeNgapID, ranUeNgapID int64, ipv4 s
 }
 
 func BuildPDUSessionResourceSetupResponseForPaging(amfUeNgapID, ranUeNgapID int64, ipv4 string) (pdu ngapType.NGAPPDU) {
-
 	pdu.Present = ngapType.NGAPPDUPresentSuccessfulOutcome
 	pdu.SuccessfulOutcome = new(ngapType.SuccessfulOutcome)
 
@@ -1625,8 +1592,7 @@ func BuildPDUSessionResourceSetupResponseForPaging(amfUeNgapID, ranUeNgapID int6
 	pDUSessionResourceSetupItemSURes := ngapType.PDUSessionResourceSetupItemSURes{}
 	pDUSessionResourceSetupItemSURes.PDUSessionID.Value = 10
 
-	pDUSessionResourceSetupItemSURes.PDUSessionResourceSetupResponseTransfer =
-		GetPDUSessionResourceSetupResponseTransfer(ipv4)
+	pDUSessionResourceSetupItemSURes.PDUSessionResourceSetupResponseTransfer = GetPDUSessionResourceSetupResponseTransfer(ipv4)
 
 	pDUSessionResourceSetupListSURes.List = append(pDUSessionResourceSetupListSURes.List, pDUSessionResourceSetupItemSURes)
 
@@ -1644,7 +1610,6 @@ func BuildPDUSessionResourceSetupResponseForPaging(amfUeNgapID, ranUeNgapID int6
 }
 
 func BuildPDUSessionResourceModifyResponse(amfUeNgapID, ranUeNgapID int64) (pdu ngapType.NGAPPDU) {
-
 	pdu.Present = ngapType.NGAPPDUPresentSuccessfulOutcome
 	pdu.SuccessfulOutcome = new(ngapType.SuccessfulOutcome)
 
@@ -1696,11 +1661,9 @@ func BuildPDUSessionResourceModifyResponse(amfUeNgapID, ranUeNgapID int64) (pdu 
 	pDUSessionResourceModifyResponseItem.PDUSessionID.Value = 10
 	// transfer := GetPDUSessionResourceModifyResponseTransfer()
 
-	pDUSessionResourceModifyResponseItem.PDUSessionResourceModifyResponseTransfer =
-		GetPDUSessionResourceModifyResponseTransfer()
+	pDUSessionResourceModifyResponseItem.PDUSessionResourceModifyResponseTransfer = GetPDUSessionResourceModifyResponseTransfer()
 
-	pDUSessionResourceModifyListModRes.List =
-		append(pDUSessionResourceModifyListModRes.List, pDUSessionResourceModifyResponseItem)
+	pDUSessionResourceModifyListModRes.List = append(pDUSessionResourceModifyListModRes.List, pDUSessionResourceModifyResponseItem)
 
 	pDUSessionResourceModifyResponseIEs.List = append(pDUSessionResourceModifyResponseIEs.List, ie)
 
@@ -1716,11 +1679,9 @@ func BuildPDUSessionResourceModifyResponse(amfUeNgapID, ranUeNgapID int64) (pdu 
 	// PDU Session Resource Failed to Modify Item in PDU Session Resource Failed to Modify List
 	pDUSessionResourceFailedToModifyItem := ngapType.PDUSessionResourceFailedToModifyItemModRes{}
 	pDUSessionResourceFailedToModifyItem.PDUSessionID.Value = 10
-	pDUSessionResourceFailedToModifyItem.PDUSessionResourceModifyUnsuccessfulTransfer =
-		GetPDUSessionResourceModifyUnsuccessfulTransfer()
+	pDUSessionResourceFailedToModifyItem.PDUSessionResourceModifyUnsuccessfulTransfer = GetPDUSessionResourceModifyUnsuccessfulTransfer()
 
-	pDUSessionResourceFailedToModifyListModRes.List =
-		append(pDUSessionResourceFailedToModifyListModRes.List, pDUSessionResourceFailedToModifyItem)
+	pDUSessionResourceFailedToModifyListModRes.List = append(pDUSessionResourceFailedToModifyListModRes.List, pDUSessionResourceFailedToModifyItem)
 
 	pDUSessionResourceModifyResponseIEs.List = append(pDUSessionResourceModifyResponseIEs.List, ie)
 
@@ -1765,7 +1726,7 @@ func BuildPDUSessionResourceNotify() (pdu ngapType.NGAPPDU) {
 	pDUSessionResourceNotify := initiatingMessage.Value.PDUSessionResourceNotify
 	pDUSessionResourceNotifyIEs := &pDUSessionResourceNotify.ProtocolIEs
 
-	//AMF UE NGAP ID
+	// AMF UE NGAP ID
 	ie := ngapType.PDUSessionResourceNotifyIEs{}
 	ie.Id.Value = ngapType.ProtocolIEIDAMFUENGAPID
 	ie.Criticality.Value = ngapType.CriticalityPresentReject
@@ -1777,7 +1738,7 @@ func BuildPDUSessionResourceNotify() (pdu ngapType.NGAPPDU) {
 
 	pDUSessionResourceNotifyIEs.List = append(pDUSessionResourceNotifyIEs.List, ie)
 
-	//RAN UE NGAP ID
+	// RAN UE NGAP ID
 	ie = ngapType.PDUSessionResourceNotifyIEs{}
 	ie.Id.Value = ngapType.ProtocolIEIDRANUENGAPID
 	ie.Criticality.Value = ngapType.CriticalityPresentReject
@@ -1789,7 +1750,7 @@ func BuildPDUSessionResourceNotify() (pdu ngapType.NGAPPDU) {
 
 	pDUSessionResourceNotifyIEs.List = append(pDUSessionResourceNotifyIEs.List, ie)
 
-	//PDU Session Resource Notify List
+	// PDU Session Resource Notify List
 	ie = ngapType.PDUSessionResourceNotifyIEs{}
 	ie.Id.Value = ngapType.ProtocolIEIDPDUSessionResourceNotifyList
 	ie.Criticality.Value = ngapType.CriticalityPresentReject
@@ -1798,7 +1759,7 @@ func BuildPDUSessionResourceNotify() (pdu ngapType.NGAPPDU) {
 
 	pDUSessionResourceNotifyList := ie.Value.PDUSessionResourceNotifyList
 
-	//PDU Session Resource Setup Request Item in (PDU Session Resource Setup Request List)
+	// PDU Session Resource Setup Request Item in (PDU Session Resource Setup Request List)
 	pDUSessionResourceNotifyItem := ngapType.PDUSessionResourceNotifyItem{}
 	pDUSessionResourceNotifyItem.PDUSessionID.Value = 10
 	pDUSessionResourceNotifyItem.PDUSessionResourceNotifyTransfer = aper.OctetString("\x12\x34\x56")
@@ -1807,7 +1768,7 @@ func BuildPDUSessionResourceNotify() (pdu ngapType.NGAPPDU) {
 
 	pDUSessionResourceNotifyIEs.List = append(pDUSessionResourceNotifyIEs.List, ie)
 
-	//PDU Session Resource Released List
+	// PDU Session Resource Released List
 	ie = ngapType.PDUSessionResourceNotifyIEs{}
 	ie.Id.Value = ngapType.ProtocolIEIDPDUSessionResourceReleasedListNot
 	ie.Criticality.Value = ngapType.CriticalityPresentIgnore
@@ -1816,13 +1777,12 @@ func BuildPDUSessionResourceNotify() (pdu ngapType.NGAPPDU) {
 
 	pDUSessionResourceReleasedListNot := ie.Value.PDUSessionResourceReleasedListNot
 
-	//PDU Session Resource Released Item in (PDU Session Resource Released List)
+	// PDU Session Resource Released Item in (PDU Session Resource Released List)
 	pDUSessionResourceReleasedItemNot := ngapType.PDUSessionResourceReleasedItemNot{}
 	pDUSessionResourceReleasedItemNot.PDUSessionID.Value = 11
 	pDUSessionResourceReleasedItemNot.PDUSessionResourceNotifyReleasedTransfer = aper.OctetString("\x65\x43\x21")
 
-	pDUSessionResourceReleasedListNot.List =
-		append(pDUSessionResourceReleasedListNot.List, pDUSessionResourceReleasedItemNot)
+	pDUSessionResourceReleasedListNot.List = append(pDUSessionResourceReleasedListNot.List, pDUSessionResourceReleasedItemNot)
 
 	pDUSessionResourceNotifyIEs.List = append(pDUSessionResourceNotifyIEs.List, ie)
 
@@ -1853,7 +1813,6 @@ func BuildPDUSessionResourceNotify() (pdu ngapType.NGAPPDU) {
 }
 
 func BuildPDUSessionResourceModifyIndication(amfUeNgapID, ranUeNgapID int64) (pdu ngapType.NGAPPDU) {
-
 	pdu.Present = ngapType.NGAPPDUPresentInitiatingMessage
 	pdu.InitiatingMessage = new(ngapType.InitiatingMessage)
 
@@ -1903,11 +1862,9 @@ func BuildPDUSessionResourceModifyIndication(amfUeNgapID, ranUeNgapID int64) (pd
 	// PDU Session Resource Modify Indication Item (in PDU Session Resource Modify Indication List)
 	pDUSessionResourceModifyItemModInd := ngapType.PDUSessionResourceModifyItemModInd{}
 	pDUSessionResourceModifyItemModInd.PDUSessionID.Value = 10
-	pDUSessionResourceModifyItemModInd.PDUSessionResourceModifyIndicationTransfer =
-		GetPDUSessionResourceModifyIndicationTransfer()
+	pDUSessionResourceModifyItemModInd.PDUSessionResourceModifyIndicationTransfer = GetPDUSessionResourceModifyIndicationTransfer()
 
-	pDUSessionResourceModifyListModInd.List =
-		append(pDUSessionResourceModifyListModInd.List, pDUSessionResourceModifyItemModInd)
+	pDUSessionResourceModifyListModInd.List = append(pDUSessionResourceModifyListModInd.List, pDUSessionResourceModifyItemModInd)
 
 	pDUSessionResourceModifyIndicationIEs.List = append(pDUSessionResourceModifyIndicationIEs.List, ie)
 
@@ -1915,7 +1872,6 @@ func BuildPDUSessionResourceModifyIndication(amfUeNgapID, ranUeNgapID int64) (pd
 }
 
 func BuildUEContextModificationFailure(amfUeNgapID, ranUeNgapID int64) (pdu ngapType.NGAPPDU) {
-
 	pdu.Present = ngapType.NGAPPDUPresentUnsuccessfulOutcome
 	pdu.UnsuccessfulOutcome = new(ngapType.UnsuccessfulOutcome)
 
@@ -1985,7 +1941,7 @@ func BuildRRCInactiveTransitionReport() (pdu ngapType.NGAPPDU) {
 	rRCInactiveTransitionReport := initiatingMessage.Value.RRCInactiveTransitionReport
 	rRCInactiveTransitionReportIEs := &rRCInactiveTransitionReport.ProtocolIEs
 
-	//AMF UE NGAP ID
+	// AMF UE NGAP ID
 	ie := ngapType.RRCInactiveTransitionReportIEs{}
 	ie.Id.Value = ngapType.ProtocolIEIDAMFUENGAPID
 	ie.Criticality.Value = ngapType.CriticalityPresentReject
@@ -1997,7 +1953,7 @@ func BuildRRCInactiveTransitionReport() (pdu ngapType.NGAPPDU) {
 
 	rRCInactiveTransitionReportIEs.List = append(rRCInactiveTransitionReportIEs.List, ie)
 
-	//RAN UE NGAP ID
+	// RAN UE NGAP ID
 	ie = ngapType.RRCInactiveTransitionReportIEs{}
 	ie.Id.Value = ngapType.ProtocolIEIDRANUENGAPID
 	ie.Criticality.Value = ngapType.CriticalityPresentReject
@@ -2009,7 +1965,7 @@ func BuildRRCInactiveTransitionReport() (pdu ngapType.NGAPPDU) {
 
 	rRCInactiveTransitionReportIEs.List = append(rRCInactiveTransitionReportIEs.List, ie)
 
-	//RRC State
+	// RRC State
 	ie = ngapType.RRCInactiveTransitionReportIEs{}
 	ie.Id.Value = ngapType.ProtocolIEIDRRCState
 	ie.Criticality.Value = ngapType.CriticalityPresentIgnore
@@ -2020,14 +1976,14 @@ func BuildRRCInactiveTransitionReport() (pdu ngapType.NGAPPDU) {
 	rRCState.Value = ngapType.RRCStatePresentConnected
 	rRCInactiveTransitionReportIEs.List = append(rRCInactiveTransitionReportIEs.List, ie)
 
-	//User Location Information
+	// User Location Information
 	ie = ngapType.RRCInactiveTransitionReportIEs{}
 	ie.Id.Value = ngapType.ProtocolIEIDUserLocationInformation
 	ie.Criticality.Value = ngapType.CriticalityPresentIgnore
 	ie.Value.Present = ngapType.RRCInactiveTransitionReportIEsPresentUserLocationInformation
 	ie.Value.UserLocationInformation = new(ngapType.UserLocationInformation)
 
-	//NR user location information
+	// NR user location information
 
 	userLocationInformation := ie.Value.UserLocationInformation
 	userLocationInformation.Present = ngapType.UserLocationInformationPresentUserLocationInformationNR
@@ -2041,7 +1997,7 @@ func BuildRRCInactiveTransitionReport() (pdu ngapType.NGAPPDU) {
 	}
 	userLocationInformationNR.TAI.PLMNIdentity.Value = aper.OctetString("\x0f\x01\x22")
 	userLocationInformationNR.TAI.TAC.Value = aper.OctetString("\x0f\x01\x22")
-	//optional
+	// optional
 	userLocationInformationNR.TimeStamp = new(ngapType.TimeStamp)
 	userLocationInformationNR.TimeStamp.Value = aper.OctetString("\x0f\x01\x22\x21")
 
@@ -2071,7 +2027,6 @@ func BuildRRCInactiveTransitionReport() (pdu ngapType.NGAPPDU) {
 }
 
 func BuildHandoverNotify(amfUeNgapID int64, ranUeNgapID int64) (pdu ngapType.NGAPPDU) {
-
 	pdu.Present = ngapType.NGAPPDUPresentInitiatingMessage
 	pdu.InitiatingMessage = new(ngapType.InitiatingMessage)
 
@@ -2085,7 +2040,7 @@ func BuildHandoverNotify(amfUeNgapID int64, ranUeNgapID int64) (pdu ngapType.NGA
 	handoverNotify := initiatingMessage.Value.HandoverNotify
 	handoverNotifyIEs := &handoverNotify.ProtocolIEs
 
-	//AMF UE NGAP ID
+	// AMF UE NGAP ID
 	ie := ngapType.HandoverNotifyIEs{}
 	ie.Id.Value = ngapType.ProtocolIEIDAMFUENGAPID
 	ie.Criticality.Value = ngapType.CriticalityPresentReject
@@ -2097,7 +2052,7 @@ func BuildHandoverNotify(amfUeNgapID int64, ranUeNgapID int64) (pdu ngapType.NGA
 
 	handoverNotifyIEs.List = append(handoverNotifyIEs.List, ie)
 
-	//RAN UE NGAP ID
+	// RAN UE NGAP ID
 	ie = ngapType.HandoverNotifyIEs{}
 	ie.Id.Value = ngapType.ProtocolIEIDRANUENGAPID
 	ie.Criticality.Value = ngapType.CriticalityPresentReject
@@ -2109,7 +2064,7 @@ func BuildHandoverNotify(amfUeNgapID int64, ranUeNgapID int64) (pdu ngapType.NGA
 
 	handoverNotifyIEs.List = append(handoverNotifyIEs.List, ie)
 
-	//User Location Information
+	// User Location Information
 	ie = ngapType.HandoverNotifyIEs{}
 	ie.Id.Value = ngapType.ProtocolIEIDUserLocationInformation
 	ie.Criticality.Value = ngapType.CriticalityPresentReject
@@ -2136,7 +2091,6 @@ func BuildHandoverNotify(amfUeNgapID int64, ranUeNgapID int64) (pdu ngapType.NGA
 }
 
 func BuildUplinkRanStatusTransfer(amfUeNgapID, ranUeNgapID int64) (pdu ngapType.NGAPPDU) {
-
 	pdu.Present = ngapType.NGAPPDUPresentInitiatingMessage
 	pdu.InitiatingMessage = new(ngapType.InitiatingMessage)
 
@@ -2209,7 +2163,6 @@ func BuildUplinkRanStatusTransfer(amfUeNgapID, ranUeNgapID int64) (pdu ngapType.
 }
 
 func BuildNasNonDeliveryIndication(amfUeNgapID, ranUeNgapID int64, naspdu aper.OctetString) (pdu ngapType.NGAPPDU) {
-
 	pdu.Present = ngapType.NGAPPDUPresentInitiatingMessage
 	pdu.InitiatingMessage = new(ngapType.InitiatingMessage)
 
@@ -2276,7 +2229,6 @@ func BuildNasNonDeliveryIndication(amfUeNgapID, ranUeNgapID int64, naspdu aper.O
 }
 
 func BuildRanConfigurationUpdate() (pdu ngapType.NGAPPDU) {
-
 	pdu.Present = ngapType.NGAPPDUPresentInitiatingMessage
 	pdu.InitiatingMessage = new(ngapType.InitiatingMessage)
 
@@ -2346,7 +2298,6 @@ func BuildRanConfigurationUpdate() (pdu ngapType.NGAPPDU) {
 }
 
 func BuildRanConfigurationUpdateAck(diagnostics *ngapType.CriticalityDiagnostics) (pdu ngapType.NGAPPDU) {
-
 	pdu.Present = ngapType.NGAPPDUPresentSuccessfulOutcome
 	pdu.SuccessfulOutcome = new(ngapType.SuccessfulOutcome)
 
@@ -2378,8 +2329,8 @@ func BuildRanConfigurationUpdateAck(diagnostics *ngapType.CriticalityDiagnostics
 
 func BuildRanConfigurationUpdateFailure(
 	time *ngapType.TimeToWait,
-	diagnostics *ngapType.CriticalityDiagnostics) (pdu ngapType.NGAPPDU) {
-
+	diagnostics *ngapType.CriticalityDiagnostics,
+) (pdu ngapType.NGAPPDU) {
 	pdu.Present = ngapType.NGAPPDUPresentUnsuccessfulOutcome
 	pdu.UnsuccessfulOutcome = new(ngapType.UnsuccessfulOutcome)
 
@@ -2443,7 +2394,6 @@ func BuildAMFStatusIndication() (pdu ngapType.NGAPPDU) {
 }
 
 func BuildUplinkRanConfigurationTransfer() (pdu ngapType.NGAPPDU) {
-
 	pdu.Present = ngapType.NGAPPDUPresentInitiatingMessage
 	pdu.InitiatingMessage = new(ngapType.InitiatingMessage)
 
@@ -2524,7 +2474,6 @@ func BuildUplinkRanConfigurationTransfer() (pdu ngapType.NGAPPDU) {
 }
 
 func BuildUplinkUEAssociatedNRPPATransport() (pdu ngapType.NGAPPDU) {
-
 	pdu.Present = ngapType.NGAPPDUPresentInitiatingMessage
 	pdu.InitiatingMessage = new(ngapType.InitiatingMessage)
 
@@ -2538,7 +2487,7 @@ func BuildUplinkUEAssociatedNRPPATransport() (pdu ngapType.NGAPPDU) {
 	uplinkUEAssociatedNRPPaTransport := initiatingMessage.Value.UplinkUEAssociatedNRPPaTransport
 	uplinkUEAssociatedNRPPaTransportIEs := &uplinkUEAssociatedNRPPaTransport.ProtocolIEs
 
-	//AMF UE NGAP ID
+	// AMF UE NGAP ID
 	ie := ngapType.UplinkUEAssociatedNRPPaTransportIEs{}
 	ie.Id.Value = ngapType.ProtocolIEIDAMFUENGAPID
 	ie.Criticality.Value = ngapType.CriticalityPresentReject
@@ -2550,7 +2499,7 @@ func BuildUplinkUEAssociatedNRPPATransport() (pdu ngapType.NGAPPDU) {
 
 	uplinkUEAssociatedNRPPaTransportIEs.List = append(uplinkUEAssociatedNRPPaTransportIEs.List, ie)
 
-	//RAN UE NGAP ID
+	// RAN UE NGAP ID
 	ie = ngapType.UplinkUEAssociatedNRPPaTransportIEs{}
 	ie.Id.Value = ngapType.ProtocolIEIDRANUENGAPID
 	ie.Criticality.Value = ngapType.CriticalityPresentReject
@@ -2562,7 +2511,7 @@ func BuildUplinkUEAssociatedNRPPATransport() (pdu ngapType.NGAPPDU) {
 
 	uplinkUEAssociatedNRPPaTransportIEs.List = append(uplinkUEAssociatedNRPPaTransportIEs.List, ie)
 
-	//Routing ID
+	// Routing ID
 	ie = ngapType.UplinkUEAssociatedNRPPaTransportIEs{}
 	ie.Id.Value = ngapType.ProtocolIEIDRoutingID
 	ie.Criticality.Value = ngapType.CriticalityPresentReject
@@ -2574,7 +2523,7 @@ func BuildUplinkUEAssociatedNRPPATransport() (pdu ngapType.NGAPPDU) {
 
 	uplinkUEAssociatedNRPPaTransportIEs.List = append(uplinkUEAssociatedNRPPaTransportIEs.List, ie)
 
-	//NRPPa-PDU
+	// NRPPa-PDU
 	ie = ngapType.UplinkUEAssociatedNRPPaTransportIEs{}
 	ie.Id.Value = ngapType.ProtocolIEIDNRPPaPDU
 	ie.Criticality.Value = ngapType.CriticalityPresentReject
@@ -2590,7 +2539,6 @@ func BuildUplinkUEAssociatedNRPPATransport() (pdu ngapType.NGAPPDU) {
 }
 
 func BuildUplinkNonUEAssociatedNRPPATransport() (pdu ngapType.NGAPPDU) {
-
 	pdu.Present = ngapType.NGAPPDUPresentInitiatingMessage
 	pdu.InitiatingMessage = new(ngapType.InitiatingMessage)
 
@@ -2604,7 +2552,7 @@ func BuildUplinkNonUEAssociatedNRPPATransport() (pdu ngapType.NGAPPDU) {
 	uplinkNonUEAssociatedNRPPaTransport := initiatingMessage.Value.UplinkNonUEAssociatedNRPPaTransport
 	uplinkNonUEAssociatedNRPPaTransportIEs := &uplinkNonUEAssociatedNRPPaTransport.ProtocolIEs
 
-	//Routing ID
+	// Routing ID
 	ie := ngapType.UplinkNonUEAssociatedNRPPaTransportIEs{}
 	ie.Id.Value = ngapType.ProtocolIEIDRoutingID
 	ie.Criticality.Value = ngapType.CriticalityPresentReject
@@ -2615,7 +2563,7 @@ func BuildUplinkNonUEAssociatedNRPPATransport() (pdu ngapType.NGAPPDU) {
 
 	uplinkNonUEAssociatedNRPPaTransportIEs.List = append(uplinkNonUEAssociatedNRPPaTransportIEs.List, ie)
 
-	//NRPPa-PDU
+	// NRPPa-PDU
 	ie = ngapType.UplinkNonUEAssociatedNRPPaTransportIEs{}
 	ie.Id.Value = ngapType.ProtocolIEIDNRPPaPDU
 	ie.Criticality.Value = ngapType.CriticalityPresentReject
@@ -2629,7 +2577,6 @@ func BuildUplinkNonUEAssociatedNRPPATransport() (pdu ngapType.NGAPPDU) {
 }
 
 func BuildLocationReport() (pdu ngapType.NGAPPDU) {
-
 	pdu.Present = ngapType.NGAPPDUPresentInitiatingMessage
 	pdu.InitiatingMessage = new(ngapType.InitiatingMessage)
 
@@ -2643,7 +2590,7 @@ func BuildLocationReport() (pdu ngapType.NGAPPDU) {
 	locationReport := initiatingMessage.Value.LocationReport
 	locationReportIEs := &locationReport.ProtocolIEs
 
-	//AMF UE NGAP ID
+	// AMF UE NGAP ID
 	ie := ngapType.LocationReportIEs{}
 	ie.Id.Value = ngapType.ProtocolIEIDAMFUENGAPID
 	ie.Criticality.Value = ngapType.CriticalityPresentReject
@@ -2655,7 +2602,7 @@ func BuildLocationReport() (pdu ngapType.NGAPPDU) {
 
 	locationReportIEs.List = append(locationReportIEs.List, ie)
 
-	//RAN UE NGAP ID
+	// RAN UE NGAP ID
 	ie = ngapType.LocationReportIEs{}
 	ie.Id.Value = ngapType.ProtocolIEIDRANUENGAPID
 	ie.Criticality.Value = ngapType.CriticalityPresentReject
@@ -2667,7 +2614,7 @@ func BuildLocationReport() (pdu ngapType.NGAPPDU) {
 
 	locationReportIEs.List = append(locationReportIEs.List, ie)
 
-	//User Location Information
+	// User Location Information
 	ie = ngapType.LocationReportIEs{}
 	ie.Id.Value = ngapType.ProtocolIEIDUserLocationInformation
 	ie.Criticality.Value = ngapType.CriticalityPresentIgnore
@@ -2690,7 +2637,7 @@ func BuildLocationReport() (pdu ngapType.NGAPPDU) {
 
 	locationReportIEs.List = append(locationReportIEs.List, ie)
 
-	//UE Presence in Area of Interest List [optional]	// if EventType = ngapType.EventTypePresentUePresenceInAreaOfInterest
+	// UE Presence in Area of Interest List [optional]	// if EventType = ngapType.EventTypePresentUePresenceInAreaOfInterest
 	ie = ngapType.LocationReportIEs{}
 	ie.Id.Value = ngapType.ProtocolIEIDUEPresenceInAreaOfInterestList
 	ie.Criticality.Value = ngapType.CriticalityPresentIgnore
@@ -2705,7 +2652,7 @@ func BuildLocationReport() (pdu ngapType.NGAPPDU) {
 	uEPresenceInAreaOfInterestList.List = append(uEPresenceInAreaOfInterestList.List, uEPresenceInAreaOfInterestItem)
 	locationReportIEs.List = append(locationReportIEs.List, ie)
 
-	//Location Reporting Request Type
+	// Location Reporting Request Type
 	ie = ngapType.LocationReportIEs{}
 	ie.Id.Value = ngapType.ProtocolIEIDLocationReportingRequestType
 	ie.Criticality.Value = ngapType.CriticalityPresentIgnore
@@ -2777,7 +2724,6 @@ func BuildUETNLABindingReleaseRequest() (pdu ngapType.NGAPPDU) {
 }
 
 func BuildUERadioCapabilityInfoIndication() (pdu ngapType.NGAPPDU) {
-
 	pdu.Present = ngapType.NGAPPDUPresentInitiatingMessage
 	pdu.InitiatingMessage = new(ngapType.InitiatingMessage)
 
@@ -2791,7 +2737,7 @@ func BuildUERadioCapabilityInfoIndication() (pdu ngapType.NGAPPDU) {
 	uERadioCapabilityInfoIndication := initiatingMessage.Value.UERadioCapabilityInfoIndication
 	uERadioCapabilityInfoIndicationIEs := &uERadioCapabilityInfoIndication.ProtocolIEs
 
-	//AMF UE NGAP ID
+	// AMF UE NGAP ID
 	ie := ngapType.UERadioCapabilityInfoIndicationIEs{}
 	ie.Id.Value = ngapType.ProtocolIEIDAMFUENGAPID
 	ie.Criticality.Value = ngapType.CriticalityPresentReject
@@ -2803,7 +2749,7 @@ func BuildUERadioCapabilityInfoIndication() (pdu ngapType.NGAPPDU) {
 
 	uERadioCapabilityInfoIndicationIEs.List = append(uERadioCapabilityInfoIndicationIEs.List, ie)
 
-	//RAN UE NGAP ID
+	// RAN UE NGAP ID
 	ie = ngapType.UERadioCapabilityInfoIndicationIEs{}
 	ie.Id.Value = ngapType.ProtocolIEIDRANUENGAPID
 	ie.Criticality.Value = ngapType.CriticalityPresentReject
@@ -2815,7 +2761,7 @@ func BuildUERadioCapabilityInfoIndication() (pdu ngapType.NGAPPDU) {
 
 	uERadioCapabilityInfoIndicationIEs.List = append(uERadioCapabilityInfoIndicationIEs.List, ie)
 
-	//UE Radio Capability
+	// UE Radio Capability
 	ie = ngapType.UERadioCapabilityInfoIndicationIEs{}
 	ie.Id.Value = ngapType.ProtocolIEIDUERadioCapability
 	ie.Criticality.Value = ngapType.CriticalityPresentIgnore
@@ -2832,7 +2778,6 @@ func BuildUERadioCapabilityInfoIndication() (pdu ngapType.NGAPPDU) {
 }
 
 func BuildAMFConfigurationUpdateAcknowledge() (pdu ngapType.NGAPPDU) {
-
 	pdu.Present = ngapType.NGAPPDUPresentSuccessfulOutcome
 	pdu.SuccessfulOutcome = new(ngapType.SuccessfulOutcome)
 
@@ -2857,8 +2802,7 @@ func BuildAMFConfigurationUpdateAcknowledge() (pdu ngapType.NGAPPDU) {
 
 	//	AMF TNL Association Setup Item
 	aMFTNLAssociationSetupItem := ngapType.AMFTNLAssociationSetupItem{}
-	aMFTNLAssociationSetupItem.AMFTNLAssociationAddress.Present =
-		ngapType.CPTransportLayerInformationPresentEndpointIPAddress
+	aMFTNLAssociationSetupItem.AMFTNLAssociationAddress.Present = ngapType.CPTransportLayerInformationPresentEndpointIPAddress
 	aMFTNLAssociationSetupItem.AMFTNLAssociationAddress.EndpointIPAddress = new(ngapType.TransportLayerAddress)
 	aMFTNLAssociationSetupItem.AMFTNLAssociationAddress.EndpointIPAddress.Value = aper.BitString{
 		Bytes:     []byte{0x12, 0x34, 0x56, 0x78},
@@ -2901,8 +2845,8 @@ func BuildAMFConfigurationUpdateAcknowledge() (pdu ngapType.NGAPPDU) {
 func BuildAMFConfigurationUpdate(amfName string, guamiList []ngapType.ServedGUAMIItem,
 	plmnList []ngapType.PLMNSupportItem, amfRelativeCapacity int64,
 	addList *ngapType.AMFTNLAssociationToAddList, removeList *ngapType.AMFTNLAssociationToRemoveList,
-	updateList *ngapType.AMFTNLAssociationToUpdateList) (pdu ngapType.NGAPPDU) {
-
+	updateList *ngapType.AMFTNLAssociationToUpdateList,
+) (pdu ngapType.NGAPPDU) {
 	pdu.Present = ngapType.NGAPPDUPresentInitiatingMessage
 	pdu.InitiatingMessage = new(ngapType.InitiatingMessage)
 
@@ -3011,8 +2955,8 @@ func BuildAMFConfigurationUpdate(amfName string, guamiList []ngapType.ServedGUAM
 }
 
 func BuildHandoverRequired(
-	amfUeNgapID, ranUeNgapID int64, targetGNBID []byte, targetCellID []byte) (pdu ngapType.NGAPPDU) {
-
+	amfUeNgapID, ranUeNgapID int64, targetGNBID []byte, targetCellID []byte,
+) (pdu ngapType.NGAPPDU) {
 	pdu.Present = ngapType.NGAPPDUPresentInitiatingMessage
 	pdu.InitiatingMessage = new(ngapType.InitiatingMessage)
 
@@ -3026,7 +2970,7 @@ func BuildHandoverRequired(
 	handoverRequired := initiatingMessage.Value.HandoverRequired
 	handoverRequiredIEs := &handoverRequired.ProtocolIEs
 
-	//AMF UE NGAP ID
+	// AMF UE NGAP ID
 	ie := ngapType.HandoverRequiredIEs{}
 	ie.Id.Value = ngapType.ProtocolIEIDAMFUENGAPID
 	ie.Criticality.Value = ngapType.CriticalityPresentReject
@@ -3038,7 +2982,7 @@ func BuildHandoverRequired(
 
 	handoverRequiredIEs.List = append(handoverRequiredIEs.List, ie)
 
-	//RAN UE NGAP ID
+	// RAN UE NGAP ID
 	ie = ngapType.HandoverRequiredIEs{}
 	ie.Id.Value = ngapType.ProtocolIEIDRANUENGAPID
 	ie.Criticality.Value = ngapType.CriticalityPresentReject
@@ -3062,7 +3006,7 @@ func BuildHandoverRequired(
 
 	handoverRequiredIEs.List = append(handoverRequiredIEs.List, ie)
 
-	//Cause
+	// Cause
 	ie = ngapType.HandoverRequiredIEs{}
 	ie.Id.Value = ngapType.ProtocolIEIDCause
 	ie.Criticality.Value = ngapType.CriticalityPresentIgnore
@@ -3076,7 +3020,7 @@ func BuildHandoverRequired(
 
 	handoverRequiredIEs.List = append(handoverRequiredIEs.List, ie)
 
-	//Target ID
+	// Target ID
 	ie = ngapType.HandoverRequiredIEs{}
 	ie.Id.Value = ngapType.ProtocolIEIDTargetID
 	ie.Criticality.Value = ngapType.CriticalityPresentReject
@@ -3121,7 +3065,7 @@ func BuildHandoverRequired(
 
 	pDUSessionResourceListHORqd := ie.Value.PDUSessionResourceListHORqd
 
-	//PDU Session Resource Item (in PDU Session Resource List)
+	// PDU Session Resource Item (in PDU Session Resource List)
 	pDUSessionResourceItem := ngapType.PDUSessionResourceItemHORqd{}
 	pDUSessionResourceItem.PDUSessionID.Value = 10
 	pDUSessionResourceItem.HandoverRequiredTransfer = GetHandoverRequiredTransfer()
@@ -3130,7 +3074,7 @@ func BuildHandoverRequired(
 
 	handoverRequiredIEs.List = append(handoverRequiredIEs.List, ie)
 
-	//Source to Target Transparent Container
+	// Source to Target Transparent Container
 	ie = ngapType.HandoverRequiredIEs{}
 	ie.Id.Value = ngapType.ProtocolIEIDSourceToTargetTransparentContainer
 	ie.Criticality.Value = ngapType.CriticalityPresentReject
@@ -3145,7 +3089,6 @@ func BuildHandoverRequired(
 }
 
 func BuildCellTrafficTrace(amfUeNgapID, ranUeNgapID int64) (pdu ngapType.NGAPPDU) {
-
 	pdu.Present = ngapType.NGAPPDUPresentInitiatingMessage
 	pdu.InitiatingMessage = new(ngapType.InitiatingMessage)
 
@@ -3230,7 +3173,6 @@ func BuildCellTrafficTrace(amfUeNgapID, ranUeNgapID int64) (pdu ngapType.NGAPPDU
 }
 
 func buildPDUSessionResourceSetupResponseTransfer(ipv4 string) (data ngapType.PDUSessionResourceSetupResponseTransfer) {
-
 	// QoS Flow per TNL Information
 	qosFlowPerTNLInformation := &data.DLQosFlowPerTNLInformation
 	qosFlowPerTNLInformation.UPTransportLayerInformation.Present = ngapType.UPTransportLayerInformationPresentGTPTunnel
@@ -3253,7 +3195,6 @@ func buildPDUSessionResourceSetupResponseTransfer(ipv4 string) (data ngapType.PD
 }
 
 func buildPDUSessionResourceModifyResponseTransfer() (data ngapType.PDUSessionResourceModifyResponseTransfer) {
-
 	// Qos Flow Add or Modify Response List
 	data.QosFlowAddOrModifyResponseList = new(ngapType.QosFlowAddOrModifyResponseList)
 	qosFlowAddOrModifyResponseList := data.QosFlowAddOrModifyResponseList
@@ -3270,7 +3211,6 @@ func buildPDUSessionResourceModifyResponseTransfer() (data ngapType.PDUSessionRe
 }
 
 func buildPDUSessionResourceSetupUnsucessfulTransfer() (data ngapType.PDUSessionResourceSetupUnsuccessfulTransfer) {
-
 	// Cause
 	data.Cause.Present = ngapType.CausePresentRadioNetwork
 	data.Cause.RadioNetwork = new(ngapType.CauseRadioNetwork)
@@ -3280,7 +3220,6 @@ func buildPDUSessionResourceSetupUnsucessfulTransfer() (data ngapType.PDUSession
 }
 
 func buildPDUSessionResourceModifyUnsuccessfulTransfer() (data ngapType.PDUSessionResourceModifyUnsuccessfulTransfer) {
-
 	// Cause
 	data.Cause = ngapType.Cause{
 		Present: ngapType.CausePresentRadioNetwork,
@@ -3299,8 +3238,8 @@ func buildPDUSessionResourceReleaseResponseTransfer() (data ngapType.PDUSessionR
 }
 
 func buildPDUSessionResourceNotifyTransfer(
-	qfis []int64, notiCause []uint64, relQfis []int64) (data ngapType.PDUSessionResourceNotifyTransfer) {
-
+	qfis []int64, notiCause []uint64, relQfis []int64,
+) (data ngapType.PDUSessionResourceNotifyTransfer) {
 	if len(qfis) > 0 {
 		data.QosFlowNotifyList = new(ngapType.QosFlowNotifyList)
 	}
@@ -3347,7 +3286,6 @@ func buildPDUSessionResourceNotifyReleasedTransfer() (data ngapType.PDUSessionRe
 }
 
 func buildPathSwitchRequestTransfer() (data ngapType.PathSwitchRequestTransfer) {
-
 	// DL NG-U UP TNL information
 	upTransportLayerInformation := &data.DLNGUUPTNLInformation
 	upTransportLayerInformation.Present = ngapType.UPTransportLayerInformationPresentGTPTunnel
@@ -3368,8 +3306,8 @@ func buildPathSwitchRequestTransfer() (data ngapType.PathSwitchRequestTransfer) 
 }
 
 func buildPDUSessionResourceModifyIndicationTransfer() (
-	data ngapType.PDUSessionResourceModifyIndicationTransfer) {
-
+	data ngapType.PDUSessionResourceModifyIndicationTransfer,
+) {
 	// DL UP TNL Information
 	data.DLQosFlowPerTNLInformation = ngapType.QosFlowPerTNLInformation{
 		UPTransportLayerInformation: ngapType.UPTransportLayerInformation{
@@ -3387,7 +3325,8 @@ func buildPDUSessionResourceModifyIndicationTransfer() (
 }
 
 func buildPDUSessionResourceModifyConfirmTransfer(qfis []int64) (
-	data ngapType.PDUSessionResourceModifyConfirmTransfer) {
+	data ngapType.PDUSessionResourceModifyConfirmTransfer,
+) {
 	for _, qfi := range qfis {
 		item := ngapType.QosFlowModifyConfirmItem{
 			QosFlowIdentifier: ngapType.QosFlowIdentifier{
@@ -3400,7 +3339,8 @@ func buildPDUSessionResourceModifyConfirmTransfer(qfis []int64) (
 }
 
 func buildPDUSessionResourceModifyIndicationUnsuccessfulTransfer() (
-	data ngapType.PDUSessionResourceModifyIndicationUnsuccessfulTransfer) {
+	data ngapType.PDUSessionResourceModifyIndicationUnsuccessfulTransfer,
+) {
 	data.Cause = ngapType.Cause{
 		Present: ngapType.CausePresentTransport,
 		Transport: &ngapType.CauseTransport{
@@ -3411,7 +3351,8 @@ func buildPDUSessionResourceModifyIndicationUnsuccessfulTransfer() (
 }
 
 func buildPDUSessionResourceReleaseCommandTransferr() (
-	data ngapType.PDUSessionResourceReleaseCommandTransfer) {
+	data ngapType.PDUSessionResourceReleaseCommandTransfer,
+) {
 	// Cause
 	data.Cause = ngapType.Cause{
 		Present: ngapType.CausePresentNas,
@@ -3423,7 +3364,6 @@ func buildPDUSessionResourceReleaseCommandTransferr() (
 }
 
 func buildPathSwitchRequestSetupFailedTransfer() (data ngapType.PathSwitchRequestSetupFailedTransfer) {
-
 	// Cause
 	data.Cause = ngapType.Cause{
 		Present: ngapType.CausePresentTransport,
@@ -3436,7 +3376,6 @@ func buildPathSwitchRequestSetupFailedTransfer() (data ngapType.PathSwitchReques
 }
 
 func buildHandoverRequestAcknowledgeTransfer() (data ngapType.HandoverRequestAcknowledgeTransfer) {
-
 	// DL NG-U UP TNL information
 	upTransportLayerInformation := &data.DLNGUUPTNLInformation
 	upTransportLayerInformation.Present = ngapType.UPTransportLayerInformationPresentGTPTunnel
@@ -3464,8 +3403,8 @@ func buildHandoverRequestAcknowledgeTransfer() (data ngapType.HandoverRequestAck
 }
 
 func buildHandoverResourceAllocationUnsuccessfulTransfer() (
-	data ngapType.HandoverResourceAllocationUnsuccessfulTransfer) {
-
+	data ngapType.HandoverResourceAllocationUnsuccessfulTransfer,
+) {
 	data.Cause = ngapType.Cause{
 		Present: ngapType.CausePresentRadioNetwork,
 		RadioNetwork: &ngapType.CauseRadioNetwork{
@@ -3483,8 +3422,8 @@ func buildHandoverRequiredTransfer() (data ngapType.HandoverRequiredTransfer) {
 }
 
 func buildSourceToTargetTransparentTransfer(
-	targetGNBID []byte, targetCellID []byte) (data ngapType.SourceNGRANNodeToTargetNGRANNodeTransparentContainer) {
-
+	targetGNBID []byte, targetCellID []byte,
+) (data ngapType.SourceNGRANNodeToTargetNGRANNodeTransparentContainer) {
 	// RRC Container
 	data.RRCContainer.Value = aper.OctetString("\x00\x00\x11")
 
@@ -3634,6 +3573,7 @@ func GetPDUSessionResourceNotifyTransfer(qfis []int64, notiCause []uint64, relQf
 	}
 	return encodeData
 }
+
 func GetPDUSessionResourceNotifyReleasedTransfer() []byte {
 	data := buildPDUSessionResourceNotifyReleasedTransfer()
 	encodeData, err := aper.MarshalWithParams(data, "valueExt")
@@ -3680,7 +3620,6 @@ func GetSourceToTargetTransparentTransfer(targetGNBID []byte, targetCellID []byt
 }
 
 func BuildInitialContextSetupResponseForRegistraionTest(amfUeNgapID, ranUeNgapID int64) (pdu ngapType.NGAPPDU) {
-
 	pdu.Present = ngapType.NGAPPDUPresentSuccessfulOutcome
 	pdu.SuccessfulOutcome = new(ngapType.SuccessfulOutcome)
 
@@ -3722,8 +3661,8 @@ func BuildInitialContextSetupResponseForRegistraionTest(amfUeNgapID, ranUeNgapID
 }
 
 func BuildPDUSessionResourceSetupResponseForRegistrationTest(
-	pduSessionId int64, amfUeNgapID, ranUeNgapID int64, ipv4 string) (pdu ngapType.NGAPPDU) {
-
+	pduSessionId int64, amfUeNgapID, ranUeNgapID int64, ipv4 string,
+) (pdu ngapType.NGAPPDU) {
 	pdu.Present = ngapType.NGAPPDUPresentSuccessfulOutcome
 	pdu.SuccessfulOutcome = new(ngapType.SuccessfulOutcome)
 
@@ -3774,8 +3713,7 @@ func BuildPDUSessionResourceSetupResponseForRegistrationTest(
 	pDUSessionResourceSetupItemSURes := ngapType.PDUSessionResourceSetupItemSURes{}
 	pDUSessionResourceSetupItemSURes.PDUSessionID.Value = pduSessionId
 
-	pDUSessionResourceSetupItemSURes.PDUSessionResourceSetupResponseTransfer =
-		GetPDUSessionResourceSetupResponseTransfer(ipv4)
+	pDUSessionResourceSetupItemSURes.PDUSessionResourceSetupResponseTransfer = GetPDUSessionResourceSetupResponseTransfer(ipv4)
 
 	pDUSessionResourceSetupListSURes.List = append(pDUSessionResourceSetupListSURes.List, pDUSessionResourceSetupItemSURes)
 
@@ -3805,7 +3743,6 @@ func BuildPDUSessionResourceSetupResponseForRegistrationTest(
 }
 
 func BuildPDUSessionResourceReleaseResponseForReleaseTest(amfUeNgapID, ranUeNgapID int64) (pdu ngapType.NGAPPDU) {
-
 	pdu.Present = ngapType.NGAPPDUPresentSuccessfulOutcome
 	pdu.SuccessfulOutcome = new(ngapType.SuccessfulOutcome)
 
@@ -3856,12 +3793,10 @@ func BuildPDUSessionResourceReleaseResponseForReleaseTest(amfUeNgapID, ranUeNgap
 	pDUSessionResourceReleasedItemRelRes := ngapType.PDUSessionResourceReleasedItemRelRes{}
 	pDUSessionResourceReleasedItemRelRes.PDUSessionID.Value = 10
 
-	pDUSessionResourceReleasedItemRelRes.PDUSessionResourceReleaseResponseTransfer =
-		GetPDUSessionResourceReleaseResponseTransfer()
+	pDUSessionResourceReleasedItemRelRes.PDUSessionResourceReleaseResponseTransfer = GetPDUSessionResourceReleaseResponseTransfer()
 	// pDUSessionResourceReleasedItemRelRes.PDUSessionResourceReleaseResponseTransfer =aper.OctetString("\x01\x02\x03")
 
-	pDUSessionResourceReleasedListRelRes.List =
-		append(pDUSessionResourceReleasedListRelRes.List, pDUSessionResourceReleasedItemRelRes)
+	pDUSessionResourceReleasedListRelRes.List = append(pDUSessionResourceReleasedListRelRes.List, pDUSessionResourceReleasedItemRelRes)
 
 	pDUSessionResourceReleaseResponseIEs.List = append(pDUSessionResourceReleaseResponseIEs.List, ie)
 
@@ -3869,8 +3804,8 @@ func BuildPDUSessionResourceReleaseResponseForReleaseTest(amfUeNgapID, ranUeNgap
 }
 
 func BuildNGSetupResponse(amfName string, guamiList []ngapType.ServedGUAMIItem,
-	plmnList []ngapType.PLMNSupportItem, amfRelativeCapacity int64) (pdu ngapType.NGAPPDU) {
-
+	plmnList []ngapType.PLMNSupportItem, amfRelativeCapacity int64,
+) (pdu ngapType.NGAPPDU) {
 	pdu.Present = ngapType.NGAPPDUPresentSuccessfulOutcome
 	pdu.SuccessfulOutcome = new(ngapType.SuccessfulOutcome)
 
@@ -3938,8 +3873,8 @@ func BuildPDUSessionResourceModifyConfirm(
 	ranUeNgapId int64,
 	pduSessionResourceModifyConfirmList ngapType.PDUSessionResourceModifyListModCfm,
 	pduSessionResourceFailedToModifyList ngapType.PDUSessionResourceFailedToModifyListModCfm,
-	criticalityDiagnostics *ngapType.CriticalityDiagnostics) (pdu ngapType.NGAPPDU) {
-
+	criticalityDiagnostics *ngapType.CriticalityDiagnostics,
+) (pdu ngapType.NGAPPDU) {
 	pdu.Present = ngapType.NGAPPDUPresentSuccessfulOutcome
 	pdu.SuccessfulOutcome = new(ngapType.SuccessfulOutcome)
 
@@ -4013,8 +3948,8 @@ func BuildPDUSessionResourceReleaseCommand(
 	ranUeNgapId int64,
 	pagingPriority *ngapType.RANPagingPriority,
 	nasPdu []byte,
-	pduSessionResourceReleasedList ngapType.PDUSessionResourceToReleaseListRelCmd) (pdu ngapType.NGAPPDU) {
-
+	pduSessionResourceReleasedList ngapType.PDUSessionResourceToReleaseListRelCmd,
+) (pdu ngapType.NGAPPDU) {
 	pdu.Present = ngapType.NGAPPDUPresentInitiatingMessage
 	pdu.InitiatingMessage = new(ngapType.InitiatingMessage)
 
@@ -4090,8 +4025,8 @@ func BuildPDUSessionResourceReleaseCommand(
 func BuildOverloadStart(
 	action *ngapType.OverloadAction,
 	ind *int64,
-	list []ngapType.OverloadStartNSSAIItem) (pdu ngapType.NGAPPDU) {
-
+	list []ngapType.OverloadStartNSSAIItem,
+) (pdu ngapType.NGAPPDU) {
 	pdu.Present = ngapType.NGAPPDUPresentInitiatingMessage
 	pdu.InitiatingMessage = new(ngapType.InitiatingMessage)
 

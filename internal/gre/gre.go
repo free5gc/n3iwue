@@ -4,14 +4,16 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/vishvananda/netlink"
+
 	"github.com/free5gc/n3iwue/internal/logger"
 	Qos "github.com/free5gc/n3iwue/internal/qos"
 	"github.com/free5gc/n3iwue/pkg/context"
-	"github.com/vishvananda/netlink"
 )
 
 func SetupGreTunnel(greIfaceName, parentIfaceName string, ueTunnelAddr, n3iwfTunnelAddr,
-	pduAddr net.IP, qoSInfo *Qos.PDUQoSInfo) (netlink.Link, error) {
+	pduAddr net.IP, qoSInfo *Qos.PDUQoSInfo,
+) (netlink.Link, error) {
 	var (
 		parent      netlink.Link
 		greKeyField uint32

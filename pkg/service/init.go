@@ -9,13 +9,14 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/vishvananda/netlink"
+
 	"github.com/free5gc/n3iwue/internal/logger"
 	"github.com/free5gc/n3iwue/internal/util"
 	context "github.com/free5gc/n3iwue/pkg/context"
 	"github.com/free5gc/n3iwue/pkg/factory"
 	ike_service "github.com/free5gc/n3iwue/pkg/ike/service"
 	"github.com/free5gc/n3iwue/pkg/procedure"
-	"github.com/vishvananda/netlink"
 )
 
 func Initialize() error {
@@ -62,7 +63,6 @@ func Start() {
 	procedure.StartProcedure()
 
 	wg.Wait()
-
 }
 
 func Terminate() {

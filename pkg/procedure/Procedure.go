@@ -68,7 +68,9 @@ func StartProcedure() {
 				if err := TestConnectivity("8.8.8.8"); err != nil {
 					AppLog.Errorf("ping fail : %+v", err)
 				} else {
-					logger.NASLog.Infof("ULCount=%x, DLCount=%x", n3ueSelf.RanUeContext.ULCount.Get(), n3ueSelf.RanUeContext.DLCount.Get())
+					logger.NASLog.Infof("ULCount=%x, DLCount=%x",
+						n3ueSelf.RanUeContext.ULCount.Get(),
+						n3ueSelf.RanUeContext.DLCount.Get())
 					AppLog.Info("Keep connection with N3IWF until receive SIGINT or SIGTERM")
 				}
 			}

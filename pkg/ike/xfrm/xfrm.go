@@ -17,7 +17,11 @@ import (
 func init() {
 }
 
-func ApplyXFRMRule(ue_is_initiator bool, ifId uint32, childSecurityAssociation *n3iwf_context.ChildSecurityAssociation) error {
+func ApplyXFRMRule(
+	ue_is_initiator bool,
+	ifId uint32,
+	childSecurityAssociation *n3iwf_context.ChildSecurityAssociation,
+) error {
 	// Build XFRM information data structure for incoming traffic.
 
 	// Mark
@@ -139,7 +143,11 @@ func ApplyXFRMRule(ue_is_initiator bool, ifId uint32, childSecurityAssociation *
 	return nil
 }
 
-func SetupIPsecXfrmi(xfrmIfaceName, parentIfaceName string, xfrmIfaceId uint32, xfrmIfaceAddr *net.IPNet) (netlink.Link, error) {
+func SetupIPsecXfrmi(
+	xfrmIfaceName, parentIfaceName string,
+	xfrmIfaceId uint32,
+	xfrmIfaceAddr *net.IPNet,
+) (netlink.Link, error) {
 	var (
 		xfrmi, parent netlink.Link
 		err           error

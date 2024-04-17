@@ -14,7 +14,9 @@ import (
 	"github.com/free5gc/n3iwue/pkg/factory"
 )
 
-func GenerateKeyForIKESA(ikeSecurityAssociation *context.IKESecurityAssociation) error {
+func GenerateKeyForIKESA(
+	ikeSecurityAssociation *context.IKESecurityAssociation,
+) error {
 	// Transforms
 	transformPseudorandomFunction := ikeSecurityAssociation.PseudorandomFunction
 
@@ -33,7 +35,9 @@ func GenerateKeyForIKESA(ikeSecurityAssociation *context.IKESecurityAssociation)
 	// Generate IKE SA key as defined in RFC7296 Section 1.3 and Section 1.4
 	var pseudorandomFunction hash.Hash
 
-	if pseudorandomFunction, ok = handler.NewPseudorandomFunction(ikeSecurityAssociation.ConcatenatedNonce, transformPseudorandomFunction.TransformID); !ok {
+	if pseudorandomFunction, ok = handler.
+		NewPseudorandomFunction(ikeSecurityAssociation.ConcatenatedNonce,
+			transformPseudorandomFunction.TransformID); !ok {
 		return errors.New("New pseudorandom function failed")
 	}
 
@@ -43,12 +47,18 @@ func GenerateKeyForIKESA(ikeSecurityAssociation *context.IKESecurityAssociation)
 
 	SKEYSEED := pseudorandomFunction.Sum(nil)
 
-	seed := concatenateNonceAndSPI(ikeSecurityAssociation.ConcatenatedNonce, ikeSecurityAssociation.LocalSPI, ikeSecurityAssociation.RemoteSPI)
+	seed := concatenateNonceAndSPI(
+		ikeSecurityAssociation.ConcatenatedNonce,
+		ikeSecurityAssociation.LocalSPI,
+		ikeSecurityAssociation.RemoteSPI,
+	)
 
 	var keyStream, generatedKeyBlock []byte
 	var index byte
 	for index = 1; len(keyStream) < totalKeyLength; index++ {
-		if pseudorandomFunction, ok = handler.NewPseudorandomFunction(SKEYSEED, transformPseudorandomFunction.TransformID); !ok {
+		if pseudorandomFunction, ok = handler.
+			NewPseudorandomFunction(SKEYSEED,
+				transformPseudorandomFunction.TransformID); !ok {
 			return errors.New("New pseudorandom function failed")
 		}
 		if _, err := pseudorandomFunction.Write(append(append(generatedKeyBlock, seed...), index)); err != nil {
@@ -77,10 +87,16 @@ func GenerateKeyForIKESA(ikeSecurityAssociation *context.IKESecurityAssociation)
 	ikeLog.Infoln("====== IKE Security Association Info =====")
 	ikeLog.Infof("Remote SPI: %016x", ikeSecurityAssociation.RemoteSPI)
 	ikeLog.Infof("Local  SPI: %016x", ikeSecurityAssociation.LocalSPI)
-	ikeLog.Infof("Encryption Algorithm: %d", ikeSecurityAssociation.EncryptionAlgorithm.TransformID)
+	ikeLog.Infof(
+		"Encryption Algorithm: %d",
+		ikeSecurityAssociation.EncryptionAlgorithm.TransformID,
+	)
 	ikeLog.Infof("SK_ei: %x", ikeSecurityAssociation.SK_ei)
 	ikeLog.Infof("SK_er: %x", ikeSecurityAssociation.SK_er)
-	ikeLog.Infof("Integrity Algorithm: %d", ikeSecurityAssociation.IntegrityAlgorithm.TransformID)
+	ikeLog.Infof(
+		"Integrity Algorithm: %d",
+		ikeSecurityAssociation.IntegrityAlgorithm.TransformID,
+	)
 	ikeLog.Infof("SK_ai: %x", ikeSecurityAssociation.SK_ai)
 	ikeLog.Infof("SK_ar: %x", ikeSecurityAssociation.SK_ar)
 	ikeLog.Infof("SK_pi: %x", ikeSecurityAssociation.SK_pi)
@@ -89,7 +105,11 @@ func GenerateKeyForIKESA(ikeSecurityAssociation *context.IKESecurityAssociation)
 	return nil
 }
 
-func concatenateNonceAndSPI(nonce []byte, SPI_initiator uint64, SPI_responder uint64) []byte {
+func concatenateNonceAndSPI(
+	nonce []byte,
+	SPI_initiator uint64,
+	SPI_responder uint64,
+) []byte {
 	spi := make([]byte, 8)
 
 	binary.BigEndian.PutUint64(spi, SPI_initiator)
@@ -100,7 +120,11 @@ func concatenateNonceAndSPI(nonce []byte, SPI_initiator uint64, SPI_responder ui
 	return newSlice
 }
 
-func EncryptProcedure(ikeSecurityAssociation *context.IKESecurityAssociation, ikePayload message.IKEPayloadContainer, responseIKEMessage *message.IKEMessage) error {
+func EncryptProcedure(
+	ikeSecurityAssociation *context.IKESecurityAssociation,
+	ikePayload message.IKEPayloadContainer,
+	responseIKEMessage *message.IKEMessage,
+) error {
 	// Load needed information
 	transformIntegrityAlgorithm := ikeSecurityAssociation.IntegrityAlgorithm
 	transformEncryptionAlgorithm := ikeSecurityAssociation.EncryptionAlgorithm
@@ -111,8 +135,15 @@ func EncryptProcedure(ikeSecurityAssociation *context.IKESecurityAssociation, ik
 	if err != nil {
 		return errors.New("Encoding IKE payload failed.")
 	}
-	logger.IKELog.Tracef("notificationPayloadData : %+v", hex.Dump(notificationPayloadData))
-	encryptedData, err := handler.EncryptMessage(ikeSecurityAssociation.SK_ei, notificationPayloadData, transformEncryptionAlgorithm.TransformID)
+	logger.IKELog.Tracef(
+		"notificationPayloadData : %+v",
+		hex.Dump(notificationPayloadData),
+	)
+	encryptedData, err := handler.EncryptMessage(
+		ikeSecurityAssociation.SK_ei,
+		notificationPayloadData,
+		transformEncryptionAlgorithm.TransformID,
+	)
 	if err != nil {
 		return errors.New("Error encrypting message")
 	}
@@ -120,7 +151,10 @@ func EncryptProcedure(ikeSecurityAssociation *context.IKESecurityAssociation, ik
 	encryptedData = append(encryptedData, make([]byte, checksumLength)...)
 	var sk *message.Encrypted
 	if len(ikePayload) == 0 {
-		sk = responseIKEMessage.Payloads.BuildEncrypted(message.NoNext, encryptedData)
+		sk = responseIKEMessage.Payloads.BuildEncrypted(
+			message.NoNext,
+			encryptedData,
+		)
 	} else {
 		sk = responseIKEMessage.Payloads.BuildEncrypted(ikePayload[0].Type(), encryptedData)
 	}
@@ -130,7 +164,11 @@ func EncryptProcedure(ikeSecurityAssociation *context.IKESecurityAssociation, ik
 	if err != nil {
 		return errors.New("Encoding IKE message error")
 	}
-	checksumOfMessage, err := handler.CalculateChecksum(ikeSecurityAssociation.SK_ai, responseIKEMessageData[:len(responseIKEMessageData)-checksumLength], transformIntegrityAlgorithm.TransformID)
+	checksumOfMessage, err := handler.CalculateChecksum(
+		ikeSecurityAssociation.SK_ai,
+		responseIKEMessageData[:len(responseIKEMessageData)-checksumLength],
+		transformIntegrityAlgorithm.TransformID,
+	)
 	if err != nil {
 		return errors.New("Error calculating checksum")
 	}
@@ -140,7 +178,11 @@ func EncryptProcedure(ikeSecurityAssociation *context.IKESecurityAssociation, ik
 	return nil
 }
 
-func DecryptProcedure(ikeSecurityAssociation *context.IKESecurityAssociation, ikeMessage *message.IKEMessage, encryptedPayload *message.Encrypted) (message.IKEPayloadContainer, error) {
+func DecryptProcedure(
+	ikeSecurityAssociation *context.IKESecurityAssociation,
+	ikeMessage *message.IKEMessage,
+	encryptedPayload *message.Encrypted,
+) (message.IKEPayloadContainer, error) {
 	// Load needed information
 	transformIntegrityAlgorithm := ikeSecurityAssociation.IntegrityAlgorithm
 	transformEncryptionAlgorithm := ikeSecurityAssociation.EncryptionAlgorithm
@@ -154,7 +196,12 @@ func DecryptProcedure(ikeSecurityAssociation *context.IKESecurityAssociation, ik
 		return nil, errors.New("Encoding IKE message failed")
 	}
 
-	ok, err := handler.VerifyIKEChecksum(ikeSecurityAssociation.SK_ar, ikeMessageData[:len(ikeMessageData)-checksumLength], checksum, transformIntegrityAlgorithm.TransformID)
+	ok, err := handler.VerifyIKEChecksum(
+		ikeSecurityAssociation.SK_ar,
+		ikeMessageData[:len(ikeMessageData)-checksumLength],
+		checksum,
+		transformIntegrityAlgorithm.TransformID,
+	)
 	if err != nil {
 		return nil, errors.New("Error verify checksum")
 	}
@@ -164,7 +211,11 @@ func DecryptProcedure(ikeSecurityAssociation *context.IKESecurityAssociation, ik
 
 	// Decrypt
 	encryptedData := encryptedPayload.EncryptedData[:len(encryptedPayload.EncryptedData)-checksumLength]
-	plainText, err := handler.DecryptMessage(ikeSecurityAssociation.SK_er, encryptedData, transformEncryptionAlgorithm.TransformID)
+	plainText, err := handler.DecryptMessage(
+		ikeSecurityAssociation.SK_er,
+		encryptedData,
+		transformEncryptionAlgorithm.TransformID,
+	)
 	if err != nil {
 		return nil, errors.New("Error decrypting message")
 	}
@@ -265,8 +316,12 @@ func ParseIPAddressInformationToChildSecurityAssociation(
 		return errors.New("childSecurityAssociation is nil")
 	}
 
-	childSecurityAssociation.PeerPublicIPAddr = net.ParseIP(factory.N3iwfInfo.IPSecIfaceAddr)
-	childSecurityAssociation.LocalPublicIPAddr = net.ParseIP(factory.N3ueInfo.IPSecIfaceAddr)
+	childSecurityAssociation.PeerPublicIPAddr = net.ParseIP(
+		factory.N3iwfInfo.IPSecIfaceAddr,
+	)
+	childSecurityAssociation.LocalPublicIPAddr = net.ParseIP(
+		factory.N3ueInfo.IPSecIfaceAddr,
+	)
 
 	childSecurityAssociation.TrafficSelectorLocal = net.IPNet{
 		IP:   trafficSelectorLocal.StartAddress,
@@ -281,11 +336,16 @@ func ParseIPAddressInformationToChildSecurityAssociation(
 	return nil
 }
 
-func GenerateKeyForChildSA(ikeSecurityAssociation *context.IKESecurityAssociation, childSecurityAssociation *context.ChildSecurityAssociation) error {
+func GenerateKeyForChildSA(
+	ikeSecurityAssociation *context.IKESecurityAssociation,
+	childSecurityAssociation *context.ChildSecurityAssociation,
+) error {
 	// Transforms
 	transformPseudorandomFunction := ikeSecurityAssociation.PseudorandomFunction
 	var transformIntegrityAlgorithmForIPSec *message.Transform
-	if len(ikeSecurityAssociation.IKEAuthResponseSA.Proposals[0].IntegrityAlgorithm) != 0 {
+	if len(
+		ikeSecurityAssociation.IKEAuthResponseSA.Proposals[0].IntegrityAlgorithm,
+	) != 0 {
 		transformIntegrityAlgorithmForIPSec = ikeSecurityAssociation.IKEAuthResponseSA.Proposals[0].IntegrityAlgorithm[0]
 	}
 
@@ -307,7 +367,9 @@ func GenerateKeyForChildSA(ikeSecurityAssociation *context.IKESecurityAssociatio
 	var keyStream, generatedKeyBlock []byte
 	var index byte
 	for index = 1; len(keyStream) < totalKeyLength; index++ {
-		if pseudorandomFunction, ok = handler.NewPseudorandomFunction(ikeSecurityAssociation.SK_d, transformPseudorandomFunction.TransformID); !ok {
+		if pseudorandomFunction, ok = handler.
+			NewPseudorandomFunction(ikeSecurityAssociation.SK_d,
+				transformPseudorandomFunction.TransformID); !ok {
 			return errors.New("New pseudorandom function failed")
 		}
 		if _, err := pseudorandomFunction.Write(append(append(generatedKeyBlock, seed...), index)); err != nil {
@@ -317,13 +379,21 @@ func GenerateKeyForChildSA(ikeSecurityAssociation *context.IKESecurityAssociatio
 		keyStream = append(keyStream, generatedKeyBlock...)
 	}
 
-	childSecurityAssociation.InitiatorToResponderEncryptionKey = append(childSecurityAssociation.InitiatorToResponderEncryptionKey, keyStream[:lengthEncryptionKeyIPSec]...)
+	childSecurityAssociation.InitiatorToResponderEncryptionKey = append(
+		childSecurityAssociation.InitiatorToResponderEncryptionKey,
+		keyStream[:lengthEncryptionKeyIPSec]...)
 	keyStream = keyStream[lengthEncryptionKeyIPSec:]
-	childSecurityAssociation.InitiatorToResponderIntegrityKey = append(childSecurityAssociation.InitiatorToResponderIntegrityKey, keyStream[:lengthIntegrityKeyIPSec]...)
+	childSecurityAssociation.InitiatorToResponderIntegrityKey = append(
+		childSecurityAssociation.InitiatorToResponderIntegrityKey,
+		keyStream[:lengthIntegrityKeyIPSec]...)
 	keyStream = keyStream[lengthIntegrityKeyIPSec:]
-	childSecurityAssociation.ResponderToInitiatorEncryptionKey = append(childSecurityAssociation.ResponderToInitiatorEncryptionKey, keyStream[:lengthEncryptionKeyIPSec]...)
+	childSecurityAssociation.ResponderToInitiatorEncryptionKey = append(
+		childSecurityAssociation.ResponderToInitiatorEncryptionKey,
+		keyStream[:lengthEncryptionKeyIPSec]...)
 	keyStream = keyStream[lengthEncryptionKeyIPSec:]
-	childSecurityAssociation.ResponderToInitiatorIntegrityKey = append(childSecurityAssociation.ResponderToInitiatorIntegrityKey, keyStream[:lengthIntegrityKeyIPSec]...)
+	childSecurityAssociation.ResponderToInitiatorIntegrityKey = append(
+		childSecurityAssociation.ResponderToInitiatorIntegrityKey,
+		keyStream[:lengthIntegrityKeyIPSec]...)
 
 	return nil
 }

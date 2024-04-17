@@ -14,7 +14,13 @@ import (
 )
 
 func SendNasMsg(ue *security.RanUeContext, conn net.Conn, msg []byte) {
-	pdu, err := ngapPacket.EncodeNasPduInEnvelopeWithSecurity(ue, msg, nas.SecurityHeaderTypeIntegrityProtectedAndCiphered, true, false)
+	pdu, err := ngapPacket.EncodeNasPduInEnvelopeWithSecurity(
+		ue,
+		msg,
+		nas.SecurityHeaderTypeIntegrityProtectedAndCiphered,
+		true,
+		false,
+	)
 	if err != nil {
 		naslog.Errorf("EncodeNasPduWithSecurity: %+v", err)
 		return

@@ -7,7 +7,7 @@ import (
 
 func main() {
 	if err := service.Initialize(); err != nil {
-		logger.CfgLog.Fatal("%+v", err)
+		logger.CfgLog.Fatalf("%+v", err)
 	}
 	service.Start()
 }

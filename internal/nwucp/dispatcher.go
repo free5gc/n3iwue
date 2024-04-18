@@ -32,8 +32,12 @@ func Dispatch(conn net.Conn, nasEnv []byte) {
 	n3ueSelf := context.N3UESelf()
 
 	// Decap Nas envelope
-	nasEnv, _ = ngapPacket.DecapNasPduFromEnvelope(nasEnv[:len((nasEnv))])
-	nasMsg, err := n3ue_security.NASDecode(n3ueSelf.RanUeContext, nas.SecurityHeaderTypeIntegrityProtectedAndCiphered, nasEnv[:len((nasEnv))])
+	nasEnv, _ = ngapPacket.DecapNasPduFromEnvelope(nasEnv[:])
+	nasMsg, err := n3ue_security.NASDecode(
+		n3ueSelf.RanUeContext,
+		nas.SecurityHeaderTypeIntegrityProtectedAndCiphered,
+		nasEnv[:],
+	)
 	if err != nil {
 		naslog.Errorf("NAS Decode Fail: %+v", err)
 		return

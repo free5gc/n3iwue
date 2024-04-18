@@ -145,7 +145,16 @@ func (ue *RanUeContext) DeriveRESstarAndSetKey(
 
 	ue.DerivateKamf(key, snName, sqn, ak)
 	ue.DerivateAlgKey()
-	kdfVal_for_resStar, err := ueauth.GetKDFValue(key, FC, P0, ueauth.KDFLen(P0), P1, ueauth.KDFLen(P1), P2, ueauth.KDFLen(P2))
+	kdfVal_for_resStar, err := ueauth.GetKDFValue(
+		key,
+		FC,
+		P0,
+		ueauth.KDFLen(P0),
+		P1,
+		ueauth.KDFLen(P1),
+		P2,
+		ueauth.KDFLen(P2),
+	)
 	if err != nil {
 		fatal.Fatalf("GetKDFValue error: %+v", err)
 	}

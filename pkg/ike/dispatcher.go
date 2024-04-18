@@ -33,11 +33,6 @@ func Dispatch(udpConn *net.UDPConn, localAddr, remoteAddr *net.UDPAddr, msg []by
 		return
 	}
 
-	if ikeMessage == nil {
-		ikeLog.Error("IKE Message is nil")
-		return
-	}
-
 	switch ikeMessage.ExchangeType {
 	case ike_message.IKE_SA_INIT:
 		handler.HandleIKESAINIT(udpConn, localAddr, remoteAddr, ikeMessage)

@@ -31,12 +31,23 @@ func InitN3UEContext() {
 
 	supi := n3ueContext.N3ueInfo.GetSUPI()
 	contextLog.Infof("SUPI: %+v", supi)
-	n3ueContext.RanUeContext = n3ue_security.NewRanUeContext(supi, 1, security.AlgCiphering128NEA0, security.AlgIntegrity128NIA2,
-		models.AccessType_NON_3_GPP_ACCESS)
+	n3ueContext.RanUeContext = n3ue_security.NewRanUeContext(
+		supi,
+		1,
+		security.AlgCiphering128NEA0,
+		security.AlgIntegrity128NIA2,
+		models.AccessType_NON_3_GPP_ACCESS,
+	)
 	n3ueContext.RanUeContext.AmfUeNgapId = 1
 	n3ueContext.RanUeContext.AuthenticationSubs = getAuthSubscription()
 
-	suci := buildSUCI(n3ueContext.N3ueInfo.BuildPLMN(), []byte{0xf0, 0xff}, 0x00, 0x00, n3ueContext.N3ueInfo.BuildMSIN())
+	suci := buildSUCI(
+		n3ueContext.N3ueInfo.BuildPLMN(),
+		[]byte{0xf0, 0xff},
+		0x00,
+		0x00,
+		n3ueContext.N3ueInfo.BuildMSIN(),
+	)
 	n3ueContext.MobileIdentity5GS = nasType.MobileIdentity5GS{
 		Len:    uint16(len(suci)),
 		Buffer: suci,
@@ -62,7 +73,13 @@ func getAuthSubscription() (authSubs models.AuthenticationSubscription) {
 	return
 }
 
-func buildSUCI(plmn []byte, routingIndicator []byte, protectionSchemeId byte, HomeNetworkPublickeyId byte, msin []byte) []byte {
+func buildSUCI(
+	plmn []byte,
+	routingIndicator []byte,
+	protectionSchemeId byte,
+	HomeNetworkPublickeyId byte,
+	msin []byte,
+) []byte {
 	var suci []byte
 	suci = append(suci, 0x01) // SUCI type
 	suci = append(suci, plmn...)

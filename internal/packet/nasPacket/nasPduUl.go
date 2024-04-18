@@ -87,14 +87,17 @@ func GetPduSessionEstablishmentRequest(pduSessionId uint8) []byte {
 	pduSessionEstablishmentRequest.IntegrityProtectionMaximumDataRate.
 		SetMaximumDataRatePerUEForUserPlaneIntegrityProtectionForUpLink(0xff)
 
-	pduSessionEstablishmentRequest.PDUSessionType = nasType.NewPDUSessionType(nasMessage.PDUSessionEstablishmentRequestPDUSessionTypeType)
+	pduSessionEstablishmentRequest.PDUSessionType = nasType.NewPDUSessionType(
+		nasMessage.PDUSessionEstablishmentRequestPDUSessionTypeType,
+	)
 	pduSessionEstablishmentRequest.PDUSessionType.SetPDUSessionTypeValue(uint8(0x01)) // IPv4 type
 
 	pduSessionEstablishmentRequest.SSCMode = nasType.NewSSCMode(nasMessage.PDUSessionEstablishmentRequestSSCModeType)
 	pduSessionEstablishmentRequest.SSCMode.SetSSCMode(uint8(0x01)) // SSC Mode 1
 
 	pduSessionEstablishmentRequest.ExtendedProtocolConfigurationOptions = nasType.NewExtendedProtocolConfigurationOptions(
-		nasMessage.PDUSessionEstablishmentRequestExtendedProtocolConfigurationOptionsType)
+		nasMessage.PDUSessionEstablishmentRequestExtendedProtocolConfigurationOptionsType,
+	)
 	protocolConfigurationOptions := nasConvert.NewProtocolConfigurationOptions()
 	protocolConfigurationOptions.AddIPAddressAllocationViaNASSignallingUL()
 	protocolConfigurationOptions.AddDNSServerIPv4AddressRequest()
@@ -154,7 +157,9 @@ func GetUlNasTransport_PduSessionEstablishmentRequest(pduSessionId uint8, reques
 		ulNasTransport.SNSSAI.SetSD(sdTemp)
 	}
 
-	ulNasTransport.SpareHalfOctetAndPayloadContainerType.SetPayloadContainerType(nasMessage.PayloadContainerTypeN1SMInfo)
+	ulNasTransport.SpareHalfOctetAndPayloadContainerType.SetPayloadContainerType(
+		nasMessage.PayloadContainerTypeN1SMInfo,
+	)
 	ulNasTransport.PayloadContainer.SetLen(uint16(len(pduSessionEstablishmentRequest)))
 	ulNasTransport.PayloadContainer.SetPayloadContainerContents(pduSessionEstablishmentRequest)
 
@@ -207,7 +212,9 @@ func GetUlNasTransport_PduSessionModificationRequest(pduSessionId uint8, request
 		ulNasTransport.SNSSAI.SetSD(sdTemp)
 	}
 
-	ulNasTransport.SpareHalfOctetAndPayloadContainerType.SetPayloadContainerType(nasMessage.PayloadContainerTypeN1SMInfo)
+	ulNasTransport.SpareHalfOctetAndPayloadContainerType.SetPayloadContainerType(
+		nasMessage.PayloadContainerTypeN1SMInfo,
+	)
 	ulNasTransport.PayloadContainer.SetLen(uint16(len(pduSessionModificationRequest)))
 	ulNasTransport.PayloadContainer.SetPayloadContainerContents(pduSessionModificationRequest)
 
@@ -422,7 +429,9 @@ func GetUlNasTransport_PduSessionCommonData(pduSessionId uint8, types string) []
 	ulNasTransport.PduSessionID2Value.SetIei(nasMessage.ULNASTransportPduSessionID2ValueType)
 	ulNasTransport.PduSessionID2Value.SetPduSessionID2Value(pduSessionId)
 
-	ulNasTransport.SpareHalfOctetAndPayloadContainerType.SetPayloadContainerType(nasMessage.PayloadContainerTypeN1SMInfo)
+	ulNasTransport.SpareHalfOctetAndPayloadContainerType.SetPayloadContainerType(
+		nasMessage.PayloadContainerTypeN1SMInfo,
+	)
 	ulNasTransport.PayloadContainer.SetLen(uint16(len(payload)))
 	ulNasTransport.PayloadContainer.SetPayloadContainerContents(payload)
 
@@ -733,7 +742,9 @@ func GetDeregistrationRequest(accessType uint8, switchOff uint8, ngKsi uint8,
 	deregistrationRequest.NgksiAndDeregistrationType.SetTSC(ngKsi)
 	deregistrationRequest.NgksiAndDeregistrationType.SetNasKeySetIdentifiler(ngKsi)
 	deregistrationRequest.MobileIdentity5GS.SetLen(mobileIdentity5GS.GetLen())
-	deregistrationRequest.MobileIdentity5GS.SetMobileIdentity5GSContents(mobileIdentity5GS.GetMobileIdentity5GSContents())
+	deregistrationRequest.MobileIdentity5GS.SetMobileIdentity5GSContents(
+		mobileIdentity5GS.GetMobileIdentity5GSContents(),
+	)
 
 	m.GmmMessage.DeregistrationRequestUEOriginatingDeregistration = deregistrationRequest
 
@@ -776,7 +787,9 @@ func GetStatus5GMM(cause uint8) []byte {
 	m.GmmHeader.SetMessageType(nas.MsgTypeStatus5GMM)
 
 	status5GMM := nasMessage.NewStatus5GMM(0)
-	status5GMM.ExtendedProtocolDiscriminator.SetExtendedProtocolDiscriminator(nasMessage.Epd5GSMobilityManagementMessage)
+	status5GMM.ExtendedProtocolDiscriminator.SetExtendedProtocolDiscriminator(
+		nasMessage.Epd5GSMobilityManagementMessage,
+	)
 	status5GMM.SpareHalfOctetAndSecurityHeaderType.SetSecurityHeaderType(nas.SecurityHeaderTypePlainNas)
 	status5GMM.SpareHalfOctetAndSecurityHeaderType.SetSpareHalfOctet(0)
 	status5GMM.STATUSMessageIdentity5GMM.SetMessageType(nas.MsgTypeStatus5GMM)
@@ -832,7 +845,9 @@ func GetUlNasTransport_Status5GSM(pduSessionId uint8, cause uint8) []byte {
 	ulNasTransport.PduSessionID2Value.SetIei(nasMessage.ULNASTransportPduSessionID2ValueType)
 	ulNasTransport.PduSessionID2Value.SetPduSessionID2Value(pduSessionId)
 
-	ulNasTransport.SpareHalfOctetAndPayloadContainerType.SetPayloadContainerType(nasMessage.PayloadContainerTypeN1SMInfo)
+	ulNasTransport.SpareHalfOctetAndPayloadContainerType.SetPayloadContainerType(
+		nasMessage.PayloadContainerTypeN1SMInfo,
+	)
 	ulNasTransport.PayloadContainer.SetLen(uint16(len(payload)))
 	ulNasTransport.PayloadContainer.SetPayloadContainerContents(payload)
 
@@ -863,7 +878,9 @@ func GetUlNasTransport_PduSessionReleaseRequest(pduSessionId uint8) []byte {
 	ulNasTransport.PduSessionID2Value.SetIei(nasMessage.ULNASTransportPduSessionID2ValueType)
 	ulNasTransport.PduSessionID2Value.SetPduSessionID2Value(pduSessionId)
 
-	ulNasTransport.SpareHalfOctetAndPayloadContainerType.SetPayloadContainerType(nasMessage.PayloadContainerTypeN1SMInfo)
+	ulNasTransport.SpareHalfOctetAndPayloadContainerType.SetPayloadContainerType(
+		nasMessage.PayloadContainerTypeN1SMInfo,
+	)
 	ulNasTransport.PayloadContainer.SetLen(uint16(len(pduSessionReleaseRequest)))
 	ulNasTransport.PayloadContainer.SetPayloadContainerContents(pduSessionReleaseRequest)
 
@@ -916,7 +933,9 @@ func GetUlNasTransport_PduSessionReleaseComplete(pduSessionId uint8, requestType
 		ulNasTransport.SNSSAI.SetSD(sdTemp)
 	}
 
-	ulNasTransport.SpareHalfOctetAndPayloadContainerType.SetPayloadContainerType(nasMessage.PayloadContainerTypeN1SMInfo)
+	ulNasTransport.SpareHalfOctetAndPayloadContainerType.SetPayloadContainerType(
+		nasMessage.PayloadContainerTypeN1SMInfo,
+	)
 	ulNasTransport.PayloadContainer.SetLen(uint16(len(pduSessionReleaseRequest)))
 	ulNasTransport.PayloadContainer.SetPayloadContainerContents(pduSessionReleaseRequest)
 

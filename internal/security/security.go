@@ -27,11 +27,11 @@ func NASEncode(ue *RanUeContext, msg *nas.Message, securityContextAvailable bool
 	var sequenceNumber uint8
 	if ue == nil {
 		err = fmt.Errorf("amfUe is nil")
-		return
+		return nil, err
 	}
 	if msg == nil {
-		err = fmt.Errorf("Nas Message is empty")
-		return
+		err = fmt.Errorf("nas Message is empty")
+		return nil, err
 	}
 
 	if !securityContextAvailable {
@@ -45,12 +45,12 @@ func NASEncode(ue *RanUeContext, msg *nas.Message, securityContextAvailable bool
 		sequenceNumber = ue.ULCount.SQN()
 		payload, err = msg.PlainNasEncode()
 		if err != nil {
-			return
+			return nil, nil
 		}
 
 		if err = security.NASEncrypt(ue.CipheringAlg, ue.KnasEnc, ue.ULCount.Get(), ue.GetBearerType(),
 			security.DirectionUplink, payload); err != nil {
-			return
+			return nil, nil
 		}
 		// add sequece number
 		payload = append([]byte{sequenceNumber}, payload[:]...)
@@ -67,7 +67,7 @@ func NASEncode(ue *RanUeContext, msg *nas.Message, securityContextAvailable bool
 		mac32, err = security.NASMacCalculate(ue.IntegrityAlg, ue.KnasInt, ue.ULCount.Get(), ue.GetBearerType(),
 			security.DirectionUplink, payload)
 		if err != nil {
-			return
+			return nil, nil
 		}
 
 		// Add mac value
@@ -88,15 +88,16 @@ func NASEnvelopeEncode(ue *RanUeContext, msg *nas.Message, securityContextAvaila
 	var sequenceNumber uint8
 	if ue == nil {
 		err = fmt.Errorf("amfUe is nil")
-		return
+		return nil, err
 	}
 	if msg == nil {
 		err = fmt.Errorf("Nas Message is empty")
-		return
+		return nil, err
 	}
 
 	if !securityContextAvailable {
-		tmpNasPdu, err := msg.PlainNasEncode()
+		var tmpNasPdu []byte
+		tmpNasPdu, err = msg.PlainNasEncode()
 		return encapNasMsgToEnvelope(tmpNasPdu), err
 	} else {
 		if newSecurityContext {
@@ -108,12 +109,12 @@ func NASEnvelopeEncode(ue *RanUeContext, msg *nas.Message, securityContextAvaila
 
 		payload, err = msg.PlainNasEncode()
 		if err != nil {
-			return
+			return nil, nil
 		}
 
 		if err = security.NASEncrypt(ue.CipheringAlg, ue.KnasEnc, ue.ULCount.Get(), ue.GetBearerType(),
 			security.DirectionUplink, payload); err != nil {
-			return
+			return nil, nil
 		}
 		// add sequece number
 		payload = append([]byte{sequenceNumber}, payload[:]...)
@@ -130,7 +131,7 @@ func NASEnvelopeEncode(ue *RanUeContext, msg *nas.Message, securityContextAvaila
 		mac32, err = security.NASMacCalculate(ue.IntegrityAlg, ue.KnasInt, ue.ULCount.Get(), ue.GetBearerType(),
 			security.DirectionUplink, payload)
 		if err != nil {
-			return
+			return nil, nil
 		}
 
 		// Add mac value
@@ -150,18 +151,18 @@ func NASEnvelopeEncode(ue *RanUeContext, msg *nas.Message, securityContextAvaila
 func NASDecode(ue *RanUeContext, securityHeaderType uint8, payload []byte) (msg *nas.Message, err error) {
 	if ue == nil {
 		err = fmt.Errorf("amfUe is nil")
-		return
+		return nil, err
 	}
 	if payload == nil {
-		err = fmt.Errorf("Nas payload is empty")
-		return
+		err = fmt.Errorf("nas payload is empty")
+		return nil, err
 	}
 
 	msg = new(nas.Message)
-	msg.SecurityHeaderType = uint8(nas.GetSecurityHeaderType(payload) & 0x0f)
+	msg.SecurityHeaderType = nas.GetSecurityHeaderType(payload) & 0x0f
 	if securityHeaderType == nas.SecurityHeaderTypePlainNas {
 		err = msg.PlainNasDecode(&payload)
-		return
+		return nil, err
 	} else if ue.IntegrityAlg == security.AlgIntegrity128NIA0 {
 		fmt.Println("decode payload is ", payload)
 		// remove header
@@ -172,7 +173,7 @@ func NASDecode(ue *RanUeContext, securityHeaderType uint8, payload []byte) (msg 
 		}
 
 		err = msg.PlainNasDecode(&payload)
-		return
+		return nil, err
 	} else { // Security protected NAS message
 		securityHeader := payload[0:6]
 		sequenceNumber := payload[6]

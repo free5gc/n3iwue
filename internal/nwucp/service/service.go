@@ -22,8 +22,7 @@ func init() {
 func Run() error {
 	n3ueSelf := context.N3UESelf()
 
-	var errChan chan error
-	errChan = make(chan error)
+	errChan := make(chan error)
 
 	go serveConn(n3ueSelf, errChan)
 	if err, ok := <-errChan; ok {

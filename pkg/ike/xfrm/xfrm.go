@@ -8,9 +8,8 @@ import (
 	"github.com/vishvananda/netlink"
 
 	n3iwf_context "github.com/free5gc/n3iwf/pkg/context"
-	context "github.com/free5gc/n3iwue/pkg/context"
-
 	"github.com/free5gc/n3iwf/pkg/ike/xfrm"
+	context "github.com/free5gc/n3iwue/pkg/context"
 )
 
 // Log

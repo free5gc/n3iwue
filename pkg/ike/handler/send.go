@@ -87,7 +87,7 @@ func SendIKESAINIT() {
 	}
 
 	ikeSecurityAssociation := &n3iwfContext.IKESecurityAssociation{
-		LocalUnsignedAuthentication: realMessage1,
+		ResponderSignedOctets: realMessage1,
 	}
 	n3ueContext.N3IWFUe.N3IWFIKESecurityAssociation = ikeSecurityAssociation
 }
@@ -170,6 +170,7 @@ func SendIKEAUTH() {
 	n3ueContext.N3IWFUe.CreateHalfChildSA(
 		n3ueContext.N3IWFUe.N3IWFIKESecurityAssociation.InitiatorMessageID,
 		factory.N3ueInfo.IPSecSaCpSPI,
+		-1,
 	)
 }
 

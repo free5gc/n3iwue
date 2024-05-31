@@ -23,8 +23,9 @@ func InitN3UEContext() {
 	n3ueContext.N3ueInfo = factory.N3ueConfig.Configuration.N3UEInfo
 	n3ueContext.N3iwfInfo = factory.N3ueConfig.Configuration.N3IWFInfo
 
-	n3ueContext.N3IWFUe = new(n3iwfContext.N3IWFUe)
-	n3ueContext.N3IWFUe.PduSessionList = make(map[int64]*n3iwfContext.PDUSession)
+	n3ueContext.N3IWFUe = new(n3iwfContext.N3IWFIkeUe)
+	n3ueContext.N3IWFRanUe = new(n3iwfContext.N3IWFRanUe)
+	n3ueContext.N3IWFRanUe.PduSessionList = make(map[int64]*n3iwfContext.PDUSession)
 	n3ueContext.N3IWFUe.N3IWFChildSecurityAssociation = make(map[uint32]*n3iwfContext.ChildSecurityAssociation)
 	n3ueContext.N3IWFUe.TemporaryExchangeMsgIDChildSAMapping = make(map[uint32]*n3iwfContext.ChildSecurityAssociation)
 	n3ueContext.PduSessionCount = 1

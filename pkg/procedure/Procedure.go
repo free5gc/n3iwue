@@ -56,7 +56,7 @@ func StartProcedure() {
 				for !done {
 					err := nwucp_handler.
 						SendPduSessionEstablishmentRequest(n3ueSelf.RanUeContext,
-							n3ueSelf.N3IWFUe.TCPConnection, n3ueSelf.PduSessionCount)
+							n3ueSelf.N3IWFRanUe.TCPConnection, n3ueSelf.PduSessionCount)
 					if err != nil {
 						AppLog.Errorf("Send PduSession Establishment Request failed: %+v", err)
 					} else {

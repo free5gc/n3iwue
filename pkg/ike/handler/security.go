@@ -398,7 +398,7 @@ func GenerateKeyForChildSA(
 	return nil
 }
 
-func GenerateSPI(n3ue *context.N3IWFUe) []byte {
+func GenerateSPI(n3ue *context.N3IWFIkeUe) []byte {
 	var spi uint32
 	spiByte := make([]byte, 4)
 	for {

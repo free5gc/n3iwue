@@ -28,7 +28,7 @@ func HandleRegistrationAccept(n3ueSelf *context.N3UE, nasMsg *nas.Message) {
 
 	// send NAS Registration Complete Msg
 	pdu := nasPacket.GetRegistrationComplete(nil)
-	SendNasMsg(n3ueSelf.RanUeContext, n3ueSelf.N3IWFUe.TCPConnection, pdu)
+	SendNasMsg(n3ueSelf.RanUeContext, n3ueSelf.N3IWFRanUe.TCPConnection, pdu)
 
 	time.Sleep(500 * time.Millisecond)
 	n3ueSelf.CurrentState <- uint8(context.PduSessionEst)

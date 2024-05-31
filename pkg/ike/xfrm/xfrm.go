@@ -8,8 +8,9 @@ import (
 	"github.com/vishvananda/netlink"
 
 	n3iwf_context "github.com/free5gc/n3iwf/pkg/context"
-	"github.com/free5gc/n3iwf/pkg/ike/handler"
 	context "github.com/free5gc/n3iwue/pkg/context"
+
+	"github.com/free5gc/n3iwf/pkg/ike/xfrm"
 )
 
 // Log
@@ -34,23 +35,23 @@ func ApplyXFRMRule(
 	var xfrmEncryptionAlgorithm, xfrmIntegrityAlgorithm *netlink.XfrmStateAlgo
 	if ue_is_initiator {
 		xfrmEncryptionAlgorithm = &netlink.XfrmStateAlgo{
-			Name: handler.XFRMEncryptionAlgorithmType(childSecurityAssociation.EncryptionAlgorithm).String(),
+			Name: xfrm.XFRMEncryptionAlgorithmType(childSecurityAssociation.EncryptionAlgorithm).String(),
 			Key:  childSecurityAssociation.ResponderToInitiatorEncryptionKey,
 		}
 		if childSecurityAssociation.IntegrityAlgorithm != 0 {
 			xfrmIntegrityAlgorithm = &netlink.XfrmStateAlgo{
-				Name: handler.XFRMIntegrityAlgorithmType(childSecurityAssociation.IntegrityAlgorithm).String(),
+				Name: xfrm.XFRMIntegrityAlgorithmType(childSecurityAssociation.IntegrityAlgorithm).String(),
 				Key:  childSecurityAssociation.ResponderToInitiatorIntegrityKey,
 			}
 		}
 	} else {
 		xfrmEncryptionAlgorithm = &netlink.XfrmStateAlgo{
-			Name: handler.XFRMEncryptionAlgorithmType(childSecurityAssociation.EncryptionAlgorithm).String(),
+			Name: xfrm.XFRMEncryptionAlgorithmType(childSecurityAssociation.EncryptionAlgorithm).String(),
 			Key:  childSecurityAssociation.InitiatorToResponderEncryptionKey,
 		}
 		if childSecurityAssociation.IntegrityAlgorithm != 0 {
 			xfrmIntegrityAlgorithm = &netlink.XfrmStateAlgo{
-				Name: handler.XFRMIntegrityAlgorithmType(childSecurityAssociation.IntegrityAlgorithm).String(),
+				Name: xfrm.XFRMIntegrityAlgorithmType(childSecurityAssociation.IntegrityAlgorithm).String(),
 				Key:  childSecurityAssociation.InitiatorToResponderIntegrityKey,
 			}
 		}

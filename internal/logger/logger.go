@@ -47,11 +47,7 @@ func init() {
 }
 
 func LogFileHook(filename string) error {
-	if fullPath, err := logger_util.CreateNfLogFile("./", filename); err == nil {
-		selfLogHook, hookErr := logger_util.NewFileHook(fullPath, os.O_CREATE|os.O_APPEND|os.O_RDWR, 0o666)
-		if hookErr != nil {
-			return hookErr
-		}
+	if selfLogHook, err := logger_util.NewFileHook("./"+filename, os.O_CREATE|os.O_APPEND|os.O_RDWR, 0o666); err == nil {
 		log.Hooks.Add(selfLogHook)
 	} else {
 		return err

@@ -50,7 +50,7 @@ func serveConn(n3ueSelf *context.N3UE, errChan chan<- error) {
 		nwucpLog.Error(err)
 		errChan <- errors.New("nwup serveConn failed")
 	}
-	n3ueSelf.N3IWFUe.TCPConnection = tcpConnWithN3IWF
+	n3ueSelf.N3IWFRanUe.TCPConnection = tcpConnWithN3IWF
 
 	close(errChan)
 
@@ -67,7 +67,7 @@ func serveConn(n3ueSelf *context.N3UE, errChan chan<- error) {
 		if err != nil {
 			if err.Error() == "EOF" {
 				nwucpLog.Warn("Connection close by peer")
-				n3ueSelf.N3IWFUe.TCPConnection = nil
+				n3ueSelf.N3IWFRanUe.TCPConnection = nil
 				return
 			} else {
 				nwucpLog.Errorf("Read TCP connection failed: %+v", err)

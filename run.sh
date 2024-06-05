@@ -7,20 +7,7 @@ PID_LIST=()
 function terminate()
 {
     sleep 1
-    sudo ip xfrm policy flush
-    sudo ip xfrm state flush
-
-    # Remove all GRE interfaces
-    GREs=$(ip link show type gre | awk 'NR%2==1 {print $2}' | cut -d @ -f 1)
-    for GRE in ${GREs}; do
-        sudo ip link del ${GRE}
-    done
-
-    # Remove all XFRM interfaces
-    XFRMIs=$(ip link show type xfrm | awk 'NR%2==1 {print $2}' | cut -d @ -f 1)
-    for XFRMI in ${XFRMIs}; do
-        sudo ip link del ${XFRMI}
-    done
+    sudo ./clean.sh
 
     sudo kill -SIGTERM ${PID_LIST[@]}
 }
@@ -50,9 +37,10 @@ sleep 1
 sudo ./n3iwue &
 SUDO_N3UE_PID=$!
 sleep 0.1
-echo $N3UE_PID
-N3UE_PID=$(pgrep -P ${N3UE_PID})
+echo SUDO_N3UE_PID $SUDO_N3UE_PID
+N3UE_PID=$(pgrep -P ${SUDO_N3UE_PID})
 PID_LIST+=($SUDO_N3UE_PID $N3UE_PID)
+echo N3UE_PID ${N3UE_PID}
 
 trap terminate SIGINT
 wait ${PID_LIST}

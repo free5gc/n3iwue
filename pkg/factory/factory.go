@@ -3,7 +3,6 @@ package factory
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"strconv"
 
@@ -21,7 +20,7 @@ var filePath string
 
 func InitConfigFactory(f string) error {
 	filePath = f
-	if content, err := ioutil.ReadFile(filePath); err != nil {
+	if content, err := os.ReadFile(filePath); err != nil {
 		return err
 	} else {
 		N3ueConfig = Config{}

@@ -89,8 +89,8 @@ func HandleIKESAINIT(
 		DiffieHellmanGroup:     n3ueSelf.Proposal.DiffieHellmanGroup[0],
 		ConcatenatedNonce:      append(n3ueSelf.LocalNonce, remoteNonce...),
 		DiffieHellmanSharedKey: sharedKeyExchangeData,
-		LocalUnsignedAuthentication: append(n3ueSelf.N3IWFUe.N3IWFIKESecurityAssociation.
-			LocalUnsignedAuthentication, remoteNonce...),
+		ResponderSignedOctets: append(n3ueSelf.N3IWFUe.N3IWFIKESecurityAssociation.
+			ResponderSignedOctets, remoteNonce...),
 	}
 
 	if err := GenerateKeyForIKESA(ikeSecurityAssociation); err != nil {
@@ -464,8 +464,8 @@ func HandleIKEAUTH(
 			ikeLog.Errorf("Pseudorandom function write error: %+v", err)
 			return
 		}
-		ikeSecurityAssociation.LocalUnsignedAuthentication = append(
-			ikeSecurityAssociation.LocalUnsignedAuthentication,
+		ikeSecurityAssociation.ResponderSignedOctets = append(
+			ikeSecurityAssociation.ResponderSignedOctets,
 			pseudorandomFunction.Sum(nil)...)
 
 		transformPseudorandomFunction := ikeSecurityAssociation.PseudorandomFunction
@@ -496,7 +496,7 @@ func HandleIKEAUTH(
 			return
 		}
 		pseudorandomFunction.Reset()
-		if _, err = pseudorandomFunction.Write(ikeSecurityAssociation.LocalUnsignedAuthentication); err != nil {
+		if _, err = pseudorandomFunction.Write(ikeSecurityAssociation.ResponderSignedOctets); err != nil {
 			ikeLog.Errorf("Pseudorandom function write error: %+v", err)
 			return
 		}
@@ -727,6 +727,7 @@ func HandleCREATECHILDSA(
 	n3ueSelf.N3IWFUe.CreateHalfChildSA(
 		ikeSecurityAssociation.ResponderMessageID,
 		binary.BigEndian.Uint32(inboundSPI),
+		-1,
 	)
 	childSecurityAssociationContextUserPlane, err := n3ueSelf.N3IWFUe.CompleteChildSA(
 		ikeSecurityAssociation.ResponderMessageID, OutboundSPI, responseSecurityAssociation)

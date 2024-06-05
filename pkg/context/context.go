@@ -26,7 +26,8 @@ const (
 )
 
 type N3UE struct {
-	N3IWFUe              *context.N3IWFUe
+	N3IWFUe              *context.N3IWFIkeUe
+	N3IWFRanUe           *context.N3IWFRanUe
 	N3ueInfo             factory.N3UEInfo
 	N3iwfInfo            factory.N3IWFInfo
 	RanUeContext         *security.RanUeContext

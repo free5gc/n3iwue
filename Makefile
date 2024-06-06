@@ -8,7 +8,6 @@ LDFLAGS = -X github.com/free5gc/version.BUILD_TIME=$(BUILD_TIME) \
 
 n3iwue: clean
 	@echo "Start building $(@F)...."
-	go mod tidy
 	CGO_ENABLED=0 go build -gcflags "$(GCFLAGS)" -ldflags "$(LDFLAGS)" -o $(ROOT_PATH)/$@ $(@F).go
 
 debug: GCFLAGS += -N -l

@@ -21,7 +21,7 @@ func SetupGreTunnel(greIfaceName, parentIfaceName string, ueTunnelAddr, n3iwfTun
 	)
 
 	if qoSInfo != nil {
-		greKeyField |= (uint32(qoSInfo.QfiList[0]) & 0x3F) << 24
+		greKeyField |= (uint32(qoSInfo.MaxQFI()) & 0x3F) << 24
 	}
 
 	if parent, err = netlink.LinkByName(parentIfaceName); err != nil {

@@ -35,7 +35,7 @@ configuration:
             SQN: 16f3b3f71005
             AMF: 8000
             OP: b672047e003bb952dca6cb8af0e5b779
-            OPC: df0c67868fa25f748b7044c6e7c245b8
+            OPC: df0c67868fa25f748b7044c6e7c245b8 # not support
 logger:
     N3UE: # the kind of log output
         debugLevel: trace # how detailed to output, value: trace, debug, info, warn, error, fatal, panic

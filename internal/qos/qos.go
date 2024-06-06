@@ -35,3 +35,11 @@ func Parse5GQoSInfoNotify(n *message.Notification) (info *PDUQoSInfo, err error)
 
 	return
 }
+
+func (pduQosInfo PDUQoSInfo) MaxQFI() uint8 {
+	var maxQfi uint8 = 0
+	for _, qfi := range pduQosInfo.QfiList {
+		maxQfi = max(maxQfi, qfi)
+	}
+	return maxQfi
+}

@@ -65,8 +65,11 @@ func StartProcedure() {
 				}
 			case context.PduSessionCreated:
 				AppLog.Info("PduSession Created")
+				if err := TestConnectivity("1.1.1.1"); err != nil {
+					AppLog.Errorf("ping fail 1.1.1.1: %+v", err)
+				}
 				if err := TestConnectivity("8.8.8.8"); err != nil {
-					AppLog.Errorf("ping fail : %+v", err)
+					AppLog.Errorf("ping fail 8.8.8.8: %+v", err)
 				} else {
 					logger.NASLog.Infof("ULCount=%x, DLCount=%x",
 						n3ueSelf.RanUeContext.ULCount.Get(),

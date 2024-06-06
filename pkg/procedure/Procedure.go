@@ -65,16 +65,20 @@ func StartProcedure() {
 				}
 			case context.PduSessionCreated:
 				AppLog.Info("PduSession Created")
-				if err := TestConnectivity("1.1.1.1"); err != nil {
-					AppLog.Errorf("ping fail 1.1.1.1: %+v", err)
-				}
-				if err := TestConnectivity("8.8.8.8"); err != nil {
-					AppLog.Errorf("ping fail 8.8.8.8: %+v", err)
+
+				pingDest := "1.1.1.1"
+				if err := TestConnectivity(pingDest); err != nil {
+					AppLog.Errorf("ping fail %s: %+v", pingDest, err)
 				} else {
-					logger.NASLog.Infof("ULCount=%x, DLCount=%x",
-						n3ueSelf.RanUeContext.ULCount.Get(),
-						n3ueSelf.RanUeContext.DLCount.Get())
-					AppLog.Info("Keep connection with N3IWF until receive SIGINT or SIGTERM")
+					pingDest = "8.8.8.8"
+					if err := TestConnectivity(pingDest); err != nil {
+						AppLog.Errorf("ping fail %s: %+v", pingDest, err)
+					} else {
+						logger.NASLog.Infof("ULCount=%x, DLCount=%x",
+							n3ueSelf.RanUeContext.ULCount.Get(),
+							n3ueSelf.RanUeContext.DLCount.Get())
+						AppLog.Info("Keep connection with N3IWF until receive SIGINT or SIGTERM")
+					}
 				}
 			}
 		}

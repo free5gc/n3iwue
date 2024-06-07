@@ -3,6 +3,7 @@ package gre
 import (
 	"fmt"
 	"net"
+	"strconv"
 
 	"github.com/vishvananda/netlink"
 
@@ -16,94 +17,49 @@ func SetupGreTunnels(
 	ueTunnelAddr, n3iwfTunnelAddr, pduAddr net.IP,
 	qoSInfo *Qos.PDUQoSInfo,
 ) ([]netlink.Link, error) {
+	parent, err := netlink.LinkByName(parentIfaceName)
+	if err != nil {
+		return nil, fmt.Errorf("netlink.LinkByName: [%+v] %+v", parentIfaceName, err)
+	}
+
 	if qoSInfo == nil {
-		linkGre, err := SetupGreTunnel(greIfaceName, parentIfaceName, ueTunnelAddr, n3iwfTunnelAddr, pduAddr, nil)
+		linkGre, err := SetupGreTunnel(greIfaceName, parent, ueTunnelAddr, n3iwfTunnelAddr, pduAddr, 0)
 		return []netlink.Link{linkGre}, err
 	}
 
 	n3ueSelf := context.N3UESelf()
-
-	var (
-		parent      netlink.Link
-		greKeyField uint32
-		err         error
-		netlinks    []netlink.Link
-	)
-
-	if parent, err = netlink.LinkByName(parentIfaceName); err != nil {
-		return nil, err
-	}
+	netlinks := []netlink.Link{}
 
 	for _, qfi := range qoSInfo.QfiList {
-		greKeyField |= (uint32(qfi) & 0x3F) << 24
-
-		// New GRE tunnel interface
-		newGRETunnel := &netlink.Gretun{
-			LinkAttrs: netlink.LinkAttrs{
-				Name: greIfaceName,
-				MTU:  1438, // remain for endpoint IP header(most 40 bytes if IPv6) and ESP header (22 bytes)
-			},
-			Link:   uint32(parent.Attrs().Index), // PHYS_DEV in iproute2; IFLA_GRE_LINK in linux kernel
-			Local:  ueTunnelAddr,
-			Remote: n3iwfTunnelAddr,
-			IKey:   greKeyField,
-			OKey:   greKeyField,
-		}
-		logger.AppLog.Infof("New GRE Tunnel, Key Field: 0x%x", greKeyField)
-
-		if err = netlink.LinkAdd(newGRETunnel); err != nil {
-			return nil, err
-		}
-
-		// Get link info
-		linkGRE, err := netlink.LinkByName(greIfaceName)
+		linkGRE, err := SetupGreTunnel(greIfaceName, parent, ueTunnelAddr, n3iwfTunnelAddr, pduAddr, qfi)
 		if err != nil {
-			return nil, fmt.Errorf("No link named %s", greIfaceName)
+			return nil, fmt.Errorf("SetupGreTunnel(): [%s]", err)
 		}
 
-		linkGREAddr := &netlink.Addr{
-			IPNet: &net.IPNet{
-				IP:   pduAddr,
-				Mask: net.IPv4Mask(255, 255, 255, 255),
-			},
-		}
-
-		if err := netlink.AddrAdd(linkGRE, linkGREAddr); err != nil {
-			return nil, err
-		}
-
-		// Set GRE interface up
-		if err := netlink.LinkSetUp(linkGRE); err != nil {
-			return nil, err
-		}
-
-		n3ueSelf.CreatedIface = append(n3ueSelf.CreatedIface, &parent)
+		n3ueSelf.CreatedIface = append(n3ueSelf.CreatedIface, &linkGRE)
 		netlinks = append(netlinks, linkGRE)
 	}
 	return netlinks, nil
 }
 
-func SetupGreTunnel(greIfaceName, parentIfaceName string, ueTunnelAddr, n3iwfTunnelAddr,
-	pduAddr net.IP, qoSInfo *Qos.PDUQoSInfo,
+func SetupGreTunnel(
+	greIfaceName string,
+	parent netlink.Link,
+	ueTunnelAddr, n3iwfTunnelAddr, pduAddr net.IP,
+	qfi uint8,
 ) (netlink.Link, error) {
 	var (
-		parent      netlink.Link
 		greKeyField uint32
 		err         error
 	)
 
-	if qoSInfo != nil {
-		greKeyField |= (uint32(qoSInfo.QfiList[0]) & 0x3F) << 24
-	}
-
-	if parent, err = netlink.LinkByName(parentIfaceName); err != nil {
-		return nil, err
-	}
+	greKeyField = (uint32(qfi) & 0x3F) << 24
+	newGreIfaceName := greIfaceName + "-" + strconv.Itoa(int(qfi))
 
 	// New GRE tunnel interface
 	newGRETunnel := &netlink.Gretun{
 		LinkAttrs: netlink.LinkAttrs{
-			Name: greIfaceName,
+			Name: newGreIfaceName,
 			MTU:  1438, // remain for endpoint IP header(most 40 bytes if IPv6) and ESP header (22 bytes)
 		},
 		Link:   uint32(parent.Attrs().Index), // PHYS_DEV in iproute2; IFLA_GRE_LINK in linux kernel
@@ -112,17 +68,16 @@ func SetupGreTunnel(greIfaceName, parentIfaceName string, ueTunnelAddr, n3iwfTun
 		IKey:   greKeyField,
 		OKey:   greKeyField,
 	}
-
-	logger.AppLog.Infof("GRE Key Field: 0x%x", greKeyField)
+	logger.AppLog.Infof("New GRE Tunnel, Key Field: [0x%x], IfaceName: [%+v]", greKeyField, newGreIfaceName)
 
 	if err = netlink.LinkAdd(newGRETunnel); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("netlink.LinkAdd: [%+v] %+v", newGreIfaceName, err)
 	}
 
 	// Get link info
-	linkGRE, err := netlink.LinkByName(greIfaceName)
+	linkGRE, err := netlink.LinkByName(newGreIfaceName)
 	if err != nil {
-		return nil, fmt.Errorf("No link named %s", greIfaceName)
+		return nil, fmt.Errorf("no link named: [%s]", newGreIfaceName)
 	}
 
 	linkGREAddr := &netlink.Addr{
@@ -140,9 +95,6 @@ func SetupGreTunnel(greIfaceName, parentIfaceName string, ueTunnelAddr, n3iwfTun
 	if err := netlink.LinkSetUp(linkGRE); err != nil {
 		return nil, err
 	}
-
-	n3ueSelf := context.N3UESelf()
-	n3ueSelf.CreatedIface = append(n3ueSelf.CreatedIface, &parent)
 
 	return linkGRE, nil
 }

@@ -57,24 +57,31 @@ func HandleDLNASTransport(n3ueSelf *context.N3UE, nasMsg *nas.Message) {
 
 		newGREName := fmt.Sprintf("%s-id-%d", n3ueSelf.N3ueInfo.GreIfaceName, n3ueSelf.N3ueInfo.XfrmiId)
 
-		var linkGRE netlink.Link
-		if linkGRE, err = gre.SetupGreTunnel(newGREName, n3ueSelf.TemporaryXfrmiName, n3ueSelf.UEInnerAddr.IP,
+		// var linkGRE netlink.Link
+		// if linkGRE, err = gre.SetupGreTunnel(newGREName, n3ueSelf.TemporaryXfrmiName, n3ueSelf.UEInnerAddr.IP,
+		// 	n3ueSelf.TemporaryUPIPAddr, pduAddress, n3ueSelf.TemporaryQosInfo); err != nil {
+		// 	naslog.Errorf("Setup GRE tunnel %s Fail %+v", newGREName, err)
+		// 	return
+		// }
+		var linkGREs []netlink.Link
+		if linkGREs, err = gre.SetupGreTunnels(newGREName, n3ueSelf.TemporaryXfrmiName, n3ueSelf.UEInnerAddr.IP,
 			n3ueSelf.TemporaryUPIPAddr, pduAddress, n3ueSelf.TemporaryQosInfo); err != nil {
 			naslog.Errorf("Setup GRE tunnel %s Fail %+v", newGREName, err)
 			return
 		}
 
-		// Add route
-		upRoute := &netlink.Route{
-			LinkIndex: linkGRE.Attrs().Index,
-			Dst: &net.IPNet{
-				IP:   net.IPv4zero,
-				Mask: net.IPv4Mask(0, 0, 0, 0),
-			},
-		}
-
-		if err := netlink.RouteAdd(upRoute); err != nil {
-			naslog.Warnf("netlink.RouteAdd: %+v", err)
+		// Add routes
+		for _, linkGRE := range linkGREs {
+			upRoute := &netlink.Route{
+				LinkIndex: linkGRE.Attrs().Index,
+				Dst: &net.IPNet{
+					IP:   net.IPv4zero,
+					Mask: net.IPv4Mask(0, 0, 0, 0),
+				},
+			}
+			if err := netlink.RouteAdd(upRoute); err != nil {
+				naslog.Warnf("netlink.RouteAdd: %+v", err)
+			}
 		}
 
 		n3ueSelf.PduSessionCount++

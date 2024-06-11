@@ -13,6 +13,7 @@ import (
 	"github.com/free5gc/n3iwue/internal/packet/nasPacket"
 	context "github.com/free5gc/n3iwue/pkg/context"
 	"github.com/free5gc/nas"
+	"github.com/free5gc/nas/nasType"
 )
 
 var naslog *logrus.Entry
@@ -57,24 +58,47 @@ func HandleDLNASTransport(n3ueSelf *context.N3UE, nasMsg *nas.Message) {
 
 		newGREName := fmt.Sprintf("%s-id-%d", n3ueSelf.N3ueInfo.GreIfaceName, n3ueSelf.N3ueInfo.XfrmiId)
 
-		var linkGRE netlink.Link
-		if linkGRE, err = gre.SetupGreTunnel(newGREName, n3ueSelf.TemporaryXfrmiName, n3ueSelf.UEInnerAddr.IP,
+		var linkGREs map[uint8]*netlink.Link
+		if linkGREs, err = gre.SetupGreTunnels(newGREName, n3ueSelf.TemporaryXfrmiName, n3ueSelf.UEInnerAddr.IP,
 			n3ueSelf.TemporaryUPIPAddr, pduAddress, n3ueSelf.TemporaryQosInfo); err != nil {
-			naslog.Errorf("Setup GRE tunnel %s Fail %+v", newGREName, err)
+			naslog.Errorf("Setup GRE tunnel %s Fail: %+v", newGREName, err)
+			return
+		}
+
+		qfiToTargetMap, err := nasPacket.GetQFItoTargetMap(nasMsg.PDUSessionEstablishmentAccept)
+		if err != nil {
+			naslog.Errorf("GetQFItoTargetMap Fail: %+v", err)
 			return
 		}
 
 		// Add route
-		upRoute := &netlink.Route{
-			LinkIndex: linkGRE.Attrs().Index,
-			Dst: &net.IPNet{
-				IP:   net.IPv4zero,
-				Mask: net.IPv4Mask(0, 0, 0, 0),
-			},
-		}
+		for qfi, link := range linkGREs {
+			tunnel := *link
+			priority := 1 // lower is higher (1 ~ 7)
 
-		if err := netlink.RouteAdd(upRoute); err != nil {
-			naslog.Warnf("netlink.RouteAdd: %+v", err)
+			var remoteAddress nasType.PacketFilterIPv4RemoteAddress
+			var ok bool
+			if qfi == uint8(1) { // default qfi
+				remoteAddress.Address = net.IPv4zero
+				remoteAddress.Mask = net.IPv4Mask(0, 0, 0, 0)
+				priority = 7
+			} else if remoteAddress, ok = qfiToTargetMap[qfi]; !ok {
+				naslog.Errorf("not found target address for QFI [%v] from NAS", qfi)
+				continue
+			}
+
+			naslog.Infof("Add route: QFI[%+v] remote address[%+v]", qfi, remoteAddress)
+			upRoute := &netlink.Route{
+				LinkIndex: tunnel.Attrs().Index,
+				Dst: &net.IPNet{
+					IP:   remoteAddress.Address,
+					Mask: remoteAddress.Mask,
+				},
+				Priority: priority,
+			}
+			if err := netlink.RouteAdd(upRoute); err != nil {
+				naslog.Warnf("netlink.RouteAdd: %+v", err)
+			}
 		}
 
 		n3ueSelf.PduSessionCount++

@@ -65,6 +65,12 @@ func StartProcedure() {
 				}
 			case context.PduSessionCreated:
 				AppLog.Info("PduSession Created")
+				if err := TestConnectivity("9.9.9.9"); err != nil {
+					AppLog.Errorf("ping fail : %+v", err)
+				}
+				if err := TestConnectivity("1.1.1.1"); err != nil {
+					AppLog.Errorf("ping fail : %+v", err)
+				}
 				if err := TestConnectivity("8.8.8.8"); err != nil {
 					AppLog.Errorf("ping fail : %+v", err)
 				} else {

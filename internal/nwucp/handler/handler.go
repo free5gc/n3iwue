@@ -13,6 +13,7 @@ import (
 	"github.com/free5gc/n3iwue/internal/packet/nasPacket"
 	context "github.com/free5gc/n3iwue/pkg/context"
 	"github.com/free5gc/nas"
+	"github.com/free5gc/nas/nasType"
 )
 
 var naslog *logrus.Entry
@@ -64,28 +65,40 @@ func HandleDLNASTransport(n3ueSelf *context.N3UE, nasMsg *nas.Message) {
 			return
 		}
 
-		// Add route
-		// QFI = 1 is default path
-		greTunnel, ok := linkGREs[uint8(1)]
-		if !ok {
-			naslog.Errorf("No default GreTunnel with QFI = 1")
-			for k, v := range linkGREs {
-				naslog.Warnf("Use QFI = [%+v] as default GreTunnel", k)
-				greTunnel = v
-				break
-			}
+		qfiToTargetMap, err := nasPacket.GetQFItoTargetMap(nasMsg.PDUSessionEstablishmentAccept)
+		if err != nil {
+			naslog.Errorf("GetQFItoTargetMap Fail: %+v", err)
+			return
 		}
 
-		defaultGretunnel := *greTunnel
-		upRoute := &netlink.Route{
-			LinkIndex: defaultGretunnel.Attrs().Index,
-			Dst: &net.IPNet{
-				IP:   net.IPv4zero,
-				Mask: net.IPv4Mask(0, 0, 0, 0),
-			},
-		}
-		if err := netlink.RouteAdd(upRoute); err != nil {
-			naslog.Warnf("netlink.RouteAdd: %+v", err)
+		// Add route
+		for qfi, link := range linkGREs {
+			tunnel := *link
+			priority := 1 // lower is higher (1 ~ 7)
+
+			var remoteAddress nasType.PacketFilterIPv4RemoteAddress
+			var ok bool
+			if qfi == uint8(1) { // default qfi
+				remoteAddress.Address = net.IPv4zero
+				remoteAddress.Mask = net.IPv4Mask(0, 0, 0, 0)
+				priority = 7
+			} else if remoteAddress, ok = qfiToTargetMap[qfi]; !ok {
+				naslog.Errorf("not found target address for QFI [%v] from NAS", qfi)
+				continue
+			}
+
+			naslog.Infof("Add route: QFI[%+v] remote address[%+v]", qfi, remoteAddress)
+			upRoute := &netlink.Route{
+				LinkIndex: tunnel.Attrs().Index,
+				Dst: &net.IPNet{
+					IP:   remoteAddress.Address,
+					Mask: remoteAddress.Mask,
+				},
+				Priority: priority,
+			}
+			if err := netlink.RouteAdd(upRoute); err != nil {
+				naslog.Warnf("netlink.RouteAdd: %+v", err)
+			}
 		}
 
 		n3ueSelf.PduSessionCount++

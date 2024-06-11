@@ -8,6 +8,7 @@ import (
 	n3ue_security "github.com/free5gc/n3iwue/internal/security"
 	"github.com/free5gc/nas"
 	"github.com/free5gc/nas/nasMessage"
+	"github.com/free5gc/nas/nasType"
 )
 
 func DecodePDUSessionEstablishmentAccept(
@@ -49,4 +50,37 @@ func GetPDUAddress(accept *nasMessage.PDUSessionEstablishmentAccept) (net.IP, er
 	}
 
 	return nil, fmt.Errorf("PDUAddress is nil")
+}
+
+func GetQFItoTargetMap(
+	accept *nasMessage.PDUSessionEstablishmentAccept,
+) (
+	map[uint8]nasType.PacketFilterIPv4RemoteAddress, error,
+) {
+	qfiMap := map[uint8]nasType.PacketFilterIPv4RemoteAddress{}
+
+	var rules nasType.QoSRules
+	if err := rules.UnmarshalBinary(accept.AuthorizedQosRules.Buffer); err != nil {
+		return nil, fmt.Errorf("rules UnmarshalBinary: %+v", err)
+	}
+
+	for _, rule := range rules {
+		for _, pfList := range rule.PacketFilterList {
+			for _, component := range pfList.Components {
+				if component.Type() == nasType.PacketFilterComponentTypeIPv4RemoteAddress {
+					var b []byte
+					var err error
+					if b, err = component.MarshalBinary(); err != nil {
+						return nil, fmt.Errorf("MarshalBinary err: %+v", err)
+					}
+					var addr nasType.PacketFilterIPv4RemoteAddress
+					if err = addr.UnmarshalBinary(b); err != nil {
+						return nil, fmt.Errorf("UnmarshalBinary err: %+v", err)
+					}
+					qfiMap[rule.QFI] = addr
+				}
+			}
+		}
+	}
+	return qfiMap, nil
 }

@@ -65,7 +65,18 @@ func HandleDLNASTransport(n3ueSelf *context.N3UE, nasMsg *nas.Message) {
 		}
 
 		// Add route
-		defaultGretunnel := *linkGREs[uint8(1)]
+		// QFI = 1 is default path
+		greTunnel, ok := linkGREs[uint8(1)]
+		if !ok {
+			naslog.Errorf("No default GreTunnel with QFI = 1")
+			for k, v := range linkGREs {
+				naslog.Warnf("Use QFI = [%+v] as default GreTunnel", k)
+				greTunnel = v
+				break
+			}
+		}
+
+		defaultGretunnel := *greTunnel
 		upRoute := &netlink.Route{
 			LinkIndex: defaultGretunnel.Attrs().Index,
 			Dst: &net.IPNet{

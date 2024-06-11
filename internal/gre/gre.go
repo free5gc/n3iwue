@@ -16,7 +16,7 @@ func SetupGreTunnels(
 	greIfaceName, parentIfaceName string,
 	ueTunnelAddr, n3iwfTunnelAddr, pduAddr net.IP,
 	qoSInfo *Qos.PDUQoSInfo,
-) ([]netlink.Link, error) {
+) (map[uint8]*netlink.Link, error) {
 	parent, err := netlink.LinkByName(parentIfaceName)
 	if err != nil {
 		return nil, fmt.Errorf("netlink.LinkByName: [%+v] %+v", parentIfaceName, err)
@@ -24,11 +24,13 @@ func SetupGreTunnels(
 
 	if qoSInfo == nil {
 		linkGre, err := SetupGreTunnel(greIfaceName, parent, ueTunnelAddr, n3iwfTunnelAddr, pduAddr, 0)
-		return []netlink.Link{linkGre}, err
+		return map[uint8]*netlink.Link{
+			1: &linkGre,
+		}, err
 	}
 
 	n3ueSelf := context.N3UESelf()
-	netlinks := []netlink.Link{}
+	netlinks := map[uint8]*netlink.Link{}
 
 	for _, qfi := range qoSInfo.QfiList {
 		linkGRE, err := SetupGreTunnel(greIfaceName, parent, ueTunnelAddr, n3iwfTunnelAddr, pduAddr, qfi)
@@ -37,7 +39,8 @@ func SetupGreTunnels(
 		}
 
 		n3ueSelf.CreatedIface = append(n3ueSelf.CreatedIface, &linkGRE)
-		netlinks = append(netlinks, linkGRE)
+		netlinks[qfi] = &linkGRE
+
 	}
 	return netlinks, nil
 }

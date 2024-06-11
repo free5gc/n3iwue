@@ -57,17 +57,17 @@ func HandleDLNASTransport(n3ueSelf *context.N3UE, nasMsg *nas.Message) {
 
 		newGREName := fmt.Sprintf("%s-id-%d", n3ueSelf.N3ueInfo.GreIfaceName, n3ueSelf.N3ueInfo.XfrmiId)
 
-		var linkGREs []netlink.Link
+		var linkGREs map[uint8]*netlink.Link
 		if linkGREs, err = gre.SetupGreTunnels(newGREName, n3ueSelf.TemporaryXfrmiName, n3ueSelf.UEInnerAddr.IP,
 			n3ueSelf.TemporaryUPIPAddr, pduAddress, n3ueSelf.TemporaryQosInfo); err != nil {
 			naslog.Errorf("Setup GRE tunnel %s Fail: %+v", newGREName, err)
 			return
 		}
 
-		// Add routes
-		// TODO: here we not ensure that linkGREs[0] is defalt path (QFI = 1)
+		// Add route
+		defaultGretunnel := *linkGREs[uint8(1)]
 		upRoute := &netlink.Route{
-			LinkIndex: linkGREs[0].Attrs().Index,
+			LinkIndex: defaultGretunnel.Attrs().Index,
 			Dst: &net.IPNet{
 				IP:   net.IPv4zero,
 				Mask: net.IPv4Mask(0, 0, 0, 0),

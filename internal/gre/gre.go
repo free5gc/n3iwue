@@ -40,7 +40,6 @@ func SetupGreTunnels(
 
 		n3ueSelf.CreatedIface = append(n3ueSelf.CreatedIface, &linkGRE)
 		netlinks[qfi] = &linkGRE
-
 	}
 	return netlinks, nil
 }

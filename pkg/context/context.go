@@ -51,6 +51,7 @@ type N3UE struct {
 	CurrentState         chan uint8
 	Kn3iwf               []uint8
 	GUTI                 *nasType.GUTI5G
+	IKEConnection        map[int]*UDPSocketInfo
 
 	// Temporary data , used to create GreTunnel
 	TemporaryXfrmiName string
@@ -140,6 +141,10 @@ type IKESecurityAssociation struct {
 
 	// Temporary data stored for the use in later exchange
 	IKEAuthResponseSA *message.SecurityAssociation
+
+	// NAT detection
+	UEIsBehindNAT    bool
+	N3IWFIsBehindNAT bool
 }
 
 func (ikeSA *IKESecurityAssociation) String() string {

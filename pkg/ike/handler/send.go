@@ -91,6 +91,30 @@ func SendIKESAINIT() {
 	ikeMessage := ike_message.NewMessage(n3ueContext.IkeInitiatorSPI, 0,
 		ike_message.IKE_SA_INIT, false, true, 0, *payload)
 
+	conn := n3ueContext.IKEConnection[4500]
+
+	// Calculate NAT_DETECTION_SOURCE_IP for NAT-T
+	natDetectionSourceIP := make([]byte, 22)
+	binary.BigEndian.PutUint64(natDetectionSourceIP[0:8], n3ueContext.IkeInitiatorSPI)
+	binary.BigEndian.PutUint64(natDetectionSourceIP[8:16], 0)
+	copy(natDetectionSourceIP[16:20], conn.UEAddr.IP.To4())
+	binary.BigEndian.PutUint16(natDetectionSourceIP[20:22], uint16(conn.UEAddr.Port))
+
+	// Build and append notify payload for NAT_DETECTION_SOURCE_IP
+	ikeMessage.Payloads.BuildNotification(
+		ike_message.TypeNone, ike_message.NAT_DETECTION_SOURCE_IP, nil, natDetectionSourceIP)
+
+	// Calculate NAT_DETECTION_DESTINATION_IP for NAT-T
+	natDetectionDestinationIP := make([]byte, 22)
+	binary.BigEndian.PutUint64(natDetectionDestinationIP[0:8], n3ueContext.IkeInitiatorSPI)
+	binary.BigEndian.PutUint64(natDetectionDestinationIP[8:16], 0)
+	copy(natDetectionDestinationIP[16:20], conn.N3IWFAddr.IP.To4())
+	binary.BigEndian.PutUint16(natDetectionDestinationIP[20:22], uint16(conn.N3IWFAddr.Port))
+
+	// Build and append notify payload for NAT_DETECTION_DESTINATION_IP
+	ikeMessage.Payloads.BuildNotification(
+		ike_message.TypeNone, ike_message.NAT_DETECTION_DESTINATION_IP, nil, natDetectionDestinationIP)
+
 	// Send to n3iwf
 	err = SendIKEMessageToN3IWF(n3ueContext.N3IWFUe.IKEConnection.Conn,
 		n3ueContext.N3IWFUe.IKEConnection.UEAddr,
@@ -116,8 +140,9 @@ func SendIKEAUTH() {
 	ikeLog.Tracef("IKE_AUTH message")
 
 	n3ueContext := context.N3UESelf()
+	ikeSA := n3ueContext.N3IWFUe.N3IWFIKESecurityAssociation
 
-	n3ueContext.N3IWFUe.N3IWFIKESecurityAssociation.InitiatorMessageID++
+	ikeSA.InitiatorMessageID++
 
 	var ikePayload ike_message.IKEPayloadContainer
 
@@ -171,12 +196,15 @@ func SendIKEAUTH() {
 	)
 
 	ikeMessage := ike_message.NewMessage(
-		n3ueContext.N3IWFUe.N3IWFIKESecurityAssociation.LocalSPI,
-		n3ueContext.N3IWFUe.N3IWFIKESecurityAssociation.RemoteSPI,
+		ikeSA.LocalSPI, ikeSA.RemoteSPI,
 		ike_message.IKE_AUTH, false, true,
-		n3ueContext.N3IWFUe.N3IWFIKESecurityAssociation.InitiatorMessageID,
+		ikeSA.InitiatorMessageID,
 		ikePayload,
 	)
+
+	if ikeSA.UEIsBehindNAT || ikeSA.N3IWFIsBehindNAT {
+		n3ueContext.N3IWFUe.IKEConnection = n3ueContext.IKEConnection[4500]
+	}
 
 	err := SendIKEMessageToN3IWF(n3ueContext.N3IWFUe.IKEConnection.Conn, n3ueContext.N3IWFUe.IKEConnection.UEAddr,
 		n3ueContext.N3IWFUe.IKEConnection.N3IWFAddr, ikeMessage,

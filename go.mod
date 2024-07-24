@@ -14,6 +14,7 @@ require (
 	github.com/free5gc/openapi v1.0.8
 	github.com/free5gc/util v1.0.7-0.20241017071924-da29aef99a1c
 	github.com/go-ping/ping v0.0.0-20211014180314-6e2b003bffdd
+	github.com/google/gopacket v1.1.19
 	github.com/pkg/errors v0.9.1
 	github.com/sirupsen/logrus v1.8.1
 	github.com/vishvananda/netlink v1.1.0

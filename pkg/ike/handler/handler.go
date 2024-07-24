@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"bytes"
+	"crypto/sha1"
 	"encoding/binary"
 	"fmt"
 	"math/big"
@@ -57,6 +59,9 @@ func HandleIKESAINIT(
 
 	var sharedKeyExchangeData []byte
 	var remoteNonce []byte
+	var notifications []*ike_message.Notification
+	// For NAT-T
+	var ueIsBehindNAT, n3iwfIsBehindNAT bool
 
 	for _, ikePayload := range message.Payloads {
 		switch ikePayload.Type() {
@@ -78,6 +83,56 @@ func HandleIKESAINIT(
 				Bytes()
 		case ike_message.TypeNiNr:
 			remoteNonce = ikePayload.(*ike_message.Nonce).NonceData
+		case ike_message.TypeN:
+			notifications = append(notifications, ikePayload.(*ike_message.Notification))
+		}
+	}
+
+	if len(notifications) != 0 {
+		for _, notification := range notifications {
+			switch notification.NotifyMessageType {
+			case ike_message.NAT_DETECTION_SOURCE_IP:
+				ikeLog.Trace("Received IKE Notify: NAT_DETECTION_SOURCE_IP")
+				// Calculate local NAT_DETECTION_SOURCE_IP hash
+				// : sha1(ispi | rspi | ueip | ueport)
+				localDetectionData := make([]byte, 22)
+				binary.BigEndian.PutUint64(localDetectionData[0:8], message.InitiatorSPI)
+				binary.BigEndian.PutUint64(localDetectionData[8:16], message.ResponderSPI)
+				copy(localDetectionData[16:20], ueAddr.IP.To4())
+				binary.BigEndian.PutUint16(localDetectionData[20:22], uint16(ueAddr.Port))
+
+				sha1HashFunction := sha1.New() // #nosec G401
+				if _, err := sha1HashFunction.Write(localDetectionData); err != nil {
+					ikeLog.Errorf("Hash function write error: %+v", err)
+					return
+				}
+
+				if !bytes.Equal(notification.NotificationData, sha1HashFunction.Sum(nil)) {
+					ikeLog.Printf("ue is behind nat")
+					ueIsBehindNAT = true
+				}
+			case ike_message.NAT_DETECTION_DESTINATION_IP:
+				ikeLog.Trace("Received IKE Notify: NAT_DETECTION_DESTINATION_IP")
+				// Calculate local NAT_DETECTION_SOURCE_IP hash
+				// : sha1(ispi | rspi | n3iwfip | n3iwfport)
+				localDetectionData := make([]byte, 22)
+				binary.BigEndian.PutUint64(localDetectionData[0:8], message.InitiatorSPI)
+				binary.BigEndian.PutUint64(localDetectionData[8:16], message.ResponderSPI)
+				copy(localDetectionData[16:20], n3iwfAddr.IP.To4())
+				binary.BigEndian.PutUint16(localDetectionData[20:22], uint16(n3iwfAddr.Port))
+
+				sha1HashFunction := sha1.New() // #nosec G401
+				if _, err := sha1HashFunction.Write(localDetectionData); err != nil {
+					ikeLog.Errorf("Hash function write error: %+v", err)
+					return
+				}
+
+				if !bytes.Equal(notification.NotificationData, sha1HashFunction.Sum(nil)) {
+					ikeLog.Printf("n3iwf is behind nat")
+					n3iwfIsBehindNAT = true
+				}
+			default:
+			}
 		}
 	}
 
@@ -95,6 +150,8 @@ func HandleIKESAINIT(
 		ConcatenatedNonce: append(n3ueSelf.LocalNonce, remoteNonce...),
 		ResponderSignedOctets: append(n3ueSelf.N3IWFUe.N3IWFIKESecurityAssociation.
 			ResponderSignedOctets, remoteNonce...),
+		UEIsBehindNAT:    ueIsBehindNAT,
+		N3IWFIsBehindNAT: n3iwfIsBehindNAT,
 	}
 
 	err := ikeSecurityAssociation.IKESAKey.GenerateKeyForIKESA(ikeSecurityAssociation.ConcatenatedNonce,
@@ -111,7 +168,7 @@ func HandleIKESAINIT(
 
 func HandleIKEAUTH(
 	udpConn *net.UDPConn,
-	n3iwfAddr, ueAddr *net.UDPAddr,
+	ueAddr, n3iwfAddr *net.UDPAddr,
 	message *ike_message.IKEMessage,
 ) {
 	ikeLog.Infoln("Handle IKE AUTH")
@@ -581,6 +638,13 @@ func HandleIKEAUTH(
 			childSecurityAssociationContext.InitiatorToResponderIntegrityKey,
 		)
 
+		// NAT-T concern
+		if ikeSecurityAssociation.UEIsBehindNAT || ikeSecurityAssociation.N3IWFIsBehindNAT {
+			childSecurityAssociationContext.EnableEncapsulate = true
+			childSecurityAssociationContext.N3IWFPort = n3iwfAddr.Port
+			childSecurityAssociationContext.NATPort = ueAddr.Port
+		}
+
 		// Setup interface for ipsec
 		newXfrmiName := fmt.Sprintf("%s-%d", n3ueSelf.N3ueInfo.XfrmiName, n3ueSelf.N3ueInfo.XfrmiId)
 		if _, err = xfrm.SetupIPsecXfrmi(newXfrmiName,
@@ -603,7 +667,7 @@ func HandleIKEAUTH(
 
 func HandleCREATECHILDSA(
 	udpConn *net.UDPConn,
-	n3iwfAddr, ueAddr *net.UDPAddr,
+	ueAddr, n3iwfAddr *net.UDPAddr,
 	message *ike_message.IKEMessage,
 ) {
 	ikeLog.Tracef("Handle CreateChildSA")
@@ -809,7 +873,7 @@ func HandleCREATECHILDSA(
 
 func HandleInformational(
 	udpConn *net.UDPConn,
-	n3iwfAddr, ueAddr *net.UDPAddr,
+	ueAddr, n3iwfAddr *net.UDPAddr,
 	message *ike_message.IKEMessage,
 ) {
 	ikeLog.Infoln("Handle Informational")

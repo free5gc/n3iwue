@@ -50,6 +50,7 @@ func InitN3UEContext() {
 		Len:    uint16(len(suci)),
 		Buffer: suci,
 	}
+	n3ueContext.IKEConnection = make(map[int]*context.UDPSocketInfo)
 }
 
 func getAuthSubscription() (authSubs models.AuthenticationSubscription) {

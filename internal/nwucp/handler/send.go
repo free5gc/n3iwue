@@ -7,9 +7,11 @@ import (
 	"github.com/free5gc/n3iwue/internal/packet/nasPacket"
 	"github.com/free5gc/n3iwue/internal/packet/ngapPacket"
 	"github.com/free5gc/n3iwue/internal/security"
+	context "github.com/free5gc/n3iwue/pkg/context"
 	"github.com/free5gc/n3iwue/pkg/factory"
 	"github.com/free5gc/nas"
 	"github.com/free5gc/nas/nasMessage"
+	"github.com/free5gc/nas/nasType"
 	"github.com/free5gc/openapi/models"
 )
 
@@ -59,4 +61,15 @@ func SendPduSessionEstablishmentRequest(ue *security.RanUeContext,
 	SendNasMsg(ue, conn, forwardData)
 	naslog.Tracef("send nas complete")
 	return nil
+}
+
+func SendDeregistration() {
+	n3ueContext := context.N3UESelf()
+	mobileIdentity5GS := nasType.MobileIdentity5GS{
+		Len:    n3ueContext.GUTI.Len,
+		Buffer: n3ueContext.GUTI.Octet[:],
+	}
+	deregistrationRequest := nasPacket.GetDeregistrationRequest(0x02, 0x01, 0x00, mobileIdentity5GS)
+
+	SendNasMsg(n3ueContext.RanUeContext, n3ueContext.N3IWFRanUe.TCPConnection, deregistrationRequest)
 }

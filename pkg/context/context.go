@@ -47,6 +47,7 @@ type N3UE struct {
 	CreatedIface         []*netlink.Link
 	CurrentState         chan uint8
 	Kn3iwf               []uint8
+	GUTI                 *nasType.GUTI5G
 
 	// Temporary data , used to create GreTunnel
 	TemporaryXfrmiName string

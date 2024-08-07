@@ -26,6 +26,7 @@ func HandleRegistrationAccept(n3ueSelf *context.N3UE, nasMsg *nas.Message) {
 	naslog.Tracef("Get Registration Accept")
 
 	n3ueSelf.RanUeContext.DLCount.AddOne()
+	n3ueSelf.GUTI = nasMsg.GmmMessage.RegistrationAccept.GUTI5G
 
 	// send NAS Registration Complete Msg
 	pdu := nasPacket.GetRegistrationComplete(nil)

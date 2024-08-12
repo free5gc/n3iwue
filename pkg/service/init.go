@@ -12,6 +12,7 @@ import (
 	"github.com/vishvananda/netlink"
 
 	"github.com/free5gc/n3iwue/internal/logger"
+	nwucp_handler "github.com/free5gc/n3iwue/internal/nwucp/handler"
 	"github.com/free5gc/n3iwue/internal/util"
 	context "github.com/free5gc/n3iwue/pkg/context"
 	"github.com/free5gc/n3iwue/pkg/factory"
@@ -45,6 +46,7 @@ func Start() {
 		}()
 
 		<-signalChannel
+		nwucp_handler.SendDeregistration()
 		Terminate()
 		time.Sleep(2 * time.Second)
 		os.Exit(0)

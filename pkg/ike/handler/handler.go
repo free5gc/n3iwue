@@ -448,7 +448,7 @@ func HandleIKEAUTH(
 			ikeSecurityAssociation.PseudorandomFunction.TransformID)
 		if !ok {
 			ikeLog.Error(
-				"Get an unsupported pseudorandom funcion. This may imply an unsupported transform is chosen.",
+				"Got an unsupported pseudorandom function. This may imply that an unsupported transform was chosen.",
 			)
 			return
 		}
@@ -476,7 +476,7 @@ func HandleIKEAUTH(
 		)
 		if !ok {
 			ikeLog.Error(
-				"Get an unsupported pseudorandom funcion. This may imply an unsupported transform is chosen.",
+				"Got an unsupported pseudorandom function. This may imply that an unsupported transform was chosen.",
 			)
 			return
 		}
@@ -491,7 +491,7 @@ func HandleIKEAUTH(
 		)
 		if !ok {
 			ikeLog.Error(
-				"Get an unsupported pseudorandom funcion. This may imply an unsupported transform is chosen.",
+				"Got an unsupported pseudorandom function. This may imply that an unsupported transform was chosen.",
 			)
 			return
 		}
@@ -634,7 +634,7 @@ func HandleCREATECHILDSA(
 
 	encryptedPayload, ok := message.Payloads[0].(*ike_message.Encrypted)
 	if !ok {
-		ikeLog.Error("Received pakcet is not and encrypted payload")
+		ikeLog.Error("Received packet is not an encrypted payload")
 		return
 	}
 	decryptedIKEPayload, err := DecryptProcedure(ikeSecurityAssociation, message, encryptedPayload)
@@ -839,6 +839,6 @@ func HandleInformational(
 		ikeLog.Tracef("Receive DPD message")
 		SendN3IWFInformationExchange(n3ueSelf, nil, ike_message.ResponseBitCheck)
 	} else {
-		ikeLog.Warnf("Unimplemented infromational message")
+		ikeLog.Warnf("Unimplemented informational message")
 	}
 }

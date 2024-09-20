@@ -104,7 +104,7 @@ func HandleIKESAINIT(
 		return
 	}
 
-	ikeLog.Tracef("ikekey:\n%v", ikeSecurityAssociation.String())
+	ikeLog.Tracef("%v", ikeSecurityAssociation.String())
 	n3ueSelf.N3IWFUe.N3IWFIKESecurityAssociation = ikeSecurityAssociation
 	n3ueSelf.CurrentState <- uint8(context.Registration_IKEAUTH)
 }

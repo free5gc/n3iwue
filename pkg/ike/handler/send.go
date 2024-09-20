@@ -5,88 +5,106 @@ import (
 	"math/big"
 	"net"
 
-	n3iwfContext "github.com/free5gc/n3iwf/pkg/context"
-	n3iwf_handler "github.com/free5gc/n3iwf/pkg/ike/handler"
-	"github.com/free5gc/n3iwf/pkg/ike/message"
-	ike_message "github.com/free5gc/n3iwf/pkg/ike/message"
+	"github.com/pkg/errors"
+
+	"github.com/free5gc/ike"
+	ike_message "github.com/free5gc/ike/message"
+	"github.com/free5gc/ike/security"
+	ike_security "github.com/free5gc/ike/security"
+	"github.com/free5gc/ike/security/dh"
 	context "github.com/free5gc/n3iwue/pkg/context"
 	"github.com/free5gc/n3iwue/pkg/factory"
 )
 
 func SendIKESAINIT() {
 	ikeLog.Tracef("start IKE_SA_INIT message")
+	var err error
 
 	n3ueContext := context.N3UESelf()
 
 	n3ueContext.IkeInitiatorSPI = factory.N3ueInfo.IkeSaSPI
-	ikeMessage := new(message.IKEMessage)
-	ikeMessage.BuildIKEHeader(n3ueContext.IkeInitiatorSPI, 0, message.IKE_SA_INIT, message.InitiatorBitCheck, 0)
+	ikeMessage := new(ike_message.IKEMessage)
+	ikeMessage.BuildIKEHeader(n3ueContext.IkeInitiatorSPI, 0, ike_message.IKE_SA_INIT, ike_message.InitiatorBitCheck, 0)
 
 	// Security Association
 	n3ueContext.SecurityAssociation = ikeMessage.Payloads.BuildSecurityAssociation()
 	// Proposal 1
-	n3ueContext.Proposal = n3ueContext.SecurityAssociation.Proposals.BuildProposal(1, message.TypeIKE, nil)
+	n3ueContext.Proposal = n3ueContext.SecurityAssociation.Proposals.BuildProposal(1, ike_message.TypeIKE, nil)
 	// ENCR
-	n3ueContext.AttributeType = message.AttributeTypeKeyLength
+	n3ueContext.AttributeType = ike_message.AttributeTypeKeyLength
 	n3ueContext.KeyLength = 256
-	n3ueContext.Proposal.EncryptionAlgorithm.BuildTransform(message.TypeEncryptionAlgorithm, message.ENCR_AES_CBC,
+	n3ueContext.Proposal.EncryptionAlgorithm.BuildTransform(ike_message.TypeEncryptionAlgorithm, ike_message.ENCR_AES_CBC,
 		&n3ueContext.AttributeType, &n3ueContext.KeyLength, nil)
 	// INTEG
 	n3ueContext.Proposal.IntegrityAlgorithm.BuildTransform(
-		message.TypeIntegrityAlgorithm,
-		message.AUTH_HMAC_SHA1_96,
+		ike_message.TypeIntegrityAlgorithm,
+		ike_message.AUTH_HMAC_SHA1_96,
 		nil,
 		nil,
 		nil,
 	)
 	// PRF
 	n3ueContext.Proposal.PseudorandomFunction.BuildTransform(
-		message.TypePseudorandomFunction,
-		message.PRF_HMAC_SHA1,
+		ike_message.TypePseudorandomFunction,
+		ike_message.PRF_HMAC_SHA1,
 		nil,
 		nil,
 		nil,
 	)
 	// DH
 	n3ueContext.Proposal.DiffieHellmanGroup.BuildTransform(
-		message.TypeDiffieHellmanGroup,
-		message.DH_2048_BIT_MODP,
+		ike_message.TypeDiffieHellmanGroup,
+		ike_message.DH_2048_BIT_MODP,
 		nil,
 		nil,
 		nil,
 	)
 
 	// Key exchange data
-	generator := new(big.Int).SetUint64(n3iwf_handler.Group14Generator)
-	factor, ok := new(big.Int).SetString(n3iwf_handler.Group14PrimeString, 16)
+	generator := new(big.Int).SetUint64(dh.Group14Generator)
+	factor, ok := new(big.Int).SetString(dh.Group14PrimeString, 16)
 	if !ok {
 		ikeLog.Error("Generate key exchange data failed")
 		return
 	}
 	n3ueContext.Factor = factor
 
-	n3ueContext.Secert = n3iwf_handler.GenerateRandomNumber()
+	n3ueContext.Secert, err = ike_security.GenerateRandomNumber()
+	if err != nil {
+		ikeLog.Errorf("SendIKESAINIT() Secert : %v", err)
+		return
+	}
+
 	localPublicKeyExchangeValue := new(big.Int).Exp(generator, n3ueContext.Secert, factor).Bytes()
 	prependZero := make([]byte, len(factor.Bytes())-len(localPublicKeyExchangeValue))
 	localPublicKeyExchangeValue = append(prependZero, localPublicKeyExchangeValue...)
-	ikeMessage.Payloads.BUildKeyExchange(message.DH_2048_BIT_MODP, localPublicKeyExchangeValue)
+	ikeMessage.Payloads.BUildKeyExchange(ike_message.DH_2048_BIT_MODP, localPublicKeyExchangeValue)
 
 	// Nonce
-	n3ueContext.LocalNonce = n3iwf_handler.GenerateRandomNumber().Bytes()
+	localNonceBigInt, err := ike_security.GenerateRandomNumber()
+	if err != nil {
+		ikeLog.Errorf("SendIKESAINIT() localNonce : %v", err)
+		return
+	}
+	n3ueContext.LocalNonce = localNonceBigInt.Bytes()
 	ikeMessage.Payloads.BuildNonce(n3ueContext.LocalNonce)
 
 	// Send to n3iwf
-	n3iwf_handler.SendIKEMessageToUE(n3ueContext.N3IWFUe.IKEConnection.Conn, n3ueContext.N3IWFUe.IKEConnection.UEAddr,
-		n3ueContext.N3IWFUe.IKEConnection.N3IWFAddr, ikeMessage)
+	err = SendIKEMessageToN3IWF(n3ueContext.N3IWFUe.IKEConnection.Conn,
+		n3ueContext.N3IWFUe.IKEConnection.UEAddr,
+		n3ueContext.N3IWFUe.IKEConnection.N3IWFAddr, ikeMessage, nil)
+	if err != nil {
+		ikeLog.Errorf("SendIKESAINIT(): %v", err)
+		return
+	}
 
 	var realMessage1 []byte
-	var err error
 	if realMessage1, err = ikeMessage.Encode(); err != nil {
 		ikeLog.Errorf("Write config file: %+v", err)
 		return
 	}
 
-	ikeSecurityAssociation := &n3iwfContext.IKESecurityAssociation{
+	ikeSecurityAssociation := &context.IKESecurityAssociation{
 		ResponderSignedOctets: realMessage1,
 	}
 	n3ueContext.N3IWFUe.N3IWFIKESecurityAssociation = ikeSecurityAssociation
@@ -97,43 +115,43 @@ func SendIKEAUTH() {
 
 	n3ueContext := context.N3UESelf()
 
-	ikeMessage := new(message.IKEMessage)
+	ikeMessage := new(ike_message.IKEMessage)
 	ikeMessage.Payloads.Reset()
 	n3ueContext.N3IWFUe.N3IWFIKESecurityAssociation.InitiatorMessageID++
 	ikeMessage.BuildIKEHeader(
 		n3ueContext.N3IWFUe.N3IWFIKESecurityAssociation.LocalSPI,
 		n3ueContext.N3IWFUe.N3IWFIKESecurityAssociation.RemoteSPI,
-		message.IKE_AUTH,
-		message.InitiatorBitCheck,
+		ike_message.IKE_AUTH,
+		ike_message.InitiatorBitCheck,
 		n3ueContext.N3IWFUe.N3IWFIKESecurityAssociation.InitiatorMessageID,
 	)
 
-	var ikePayload message.IKEPayloadContainer
+	var ikePayload ike_message.IKEPayloadContainer
 
 	// Identification
-	ikePayload.BuildIdentificationInitiator(message.ID_KEY_ID, []byte("UE"))
+	ikePayload.BuildIdentificationInitiator(ike_message.ID_KEY_ID, []byte("UE"))
 
 	// Security Association
 	n3ueContext.SecurityAssociation = ikePayload.BuildSecurityAssociation()
 	// Proposal 1
 	spi := make([]byte, 4)
 	binary.BigEndian.PutUint32(spi, factory.N3ueInfo.IPSecSaCpSPI)
-	n3ueContext.Proposal = n3ueContext.SecurityAssociation.Proposals.BuildProposal(1, message.TypeESP, spi)
+	n3ueContext.Proposal = n3ueContext.SecurityAssociation.Proposals.BuildProposal(1, ike_message.TypeESP, spi)
 	// ENCR
-	n3ueContext.Proposal.EncryptionAlgorithm.BuildTransform(message.TypeEncryptionAlgorithm, message.ENCR_AES_CBC,
+	n3ueContext.Proposal.EncryptionAlgorithm.BuildTransform(ike_message.TypeEncryptionAlgorithm, ike_message.ENCR_AES_CBC,
 		&n3ueContext.AttributeType, &n3ueContext.KeyLength, nil)
 	// INTEG
 	n3ueContext.Proposal.IntegrityAlgorithm.BuildTransform(
-		message.TypeIntegrityAlgorithm,
-		message.AUTH_HMAC_SHA1_96,
+		ike_message.TypeIntegrityAlgorithm,
+		ike_message.AUTH_HMAC_SHA1_96,
 		nil,
 		nil,
 		nil,
 	)
 	// ESN
 	n3ueContext.Proposal.ExtendedSequenceNumbers.BuildTransform(
-		message.TypeExtendedSequenceNumbers,
-		message.ESN_NO,
+		ike_message.TypeExtendedSequenceNumbers,
+		ike_message.ESN_DISABLE,
 		nil,
 		nil,
 		nil,
@@ -142,7 +160,7 @@ func SendIKEAUTH() {
 	// Traffic Selector
 	tsi := ikePayload.BuildTrafficSelectorInitiator()
 	tsi.TrafficSelectors.BuildIndividualTrafficSelector(
-		message.TS_IPV4_ADDR_RANGE,
+		ike_message.TS_IPV4_ADDR_RANGE,
 		0,
 		0,
 		65535,
@@ -151,7 +169,7 @@ func SendIKEAUTH() {
 	)
 	tsr := ikePayload.BuildTrafficSelectorResponder()
 	tsr.TrafficSelectors.BuildIndividualTrafficSelector(
-		message.TS_IPV4_ADDR_RANGE,
+		ike_message.TS_IPV4_ADDR_RANGE,
 		0,
 		0,
 		65535,
@@ -159,13 +177,14 @@ func SendIKEAUTH() {
 		[]byte{255, 255, 255, 255},
 	)
 
-	if err := EncryptProcedure(n3ueContext.N3IWFUe.N3IWFIKESecurityAssociation, ikePayload, ikeMessage); err != nil {
-		ikeLog.Errorf("Encrypting IKE message failed: %+v", err)
+	ikeMessage.Payloads = append(ikeMessage.Payloads, ikePayload...)
+	err := SendIKEMessageToN3IWF(n3ueContext.N3IWFUe.IKEConnection.Conn, n3ueContext.N3IWFUe.IKEConnection.UEAddr,
+		n3ueContext.N3IWFUe.IKEConnection.N3IWFAddr, ikeMessage,
+		n3ueContext.N3IWFUe.N3IWFIKESecurityAssociation.IKESAKey)
+	if err != nil {
+		ikeLog.Errorf("SendIKEAUTH(): %d", err)
 		return
 	}
-
-	SendIKEMessageToN3IWF(n3ueContext.N3IWFUe.IKEConnection.Conn, n3ueContext.N3IWFUe.IKEConnection.UEAddr,
-		n3ueContext.N3IWFUe.IKEConnection.N3IWFAddr, ikeMessage)
 
 	n3ueContext.N3IWFUe.CreateHalfChildSA(
 		n3ueContext.N3IWFUe.N3IWFIKESecurityAssociation.InitiatorMessageID,
@@ -174,15 +193,22 @@ func SendIKEAUTH() {
 	)
 }
 
-func SendIKEMessageToN3IWF(udpConn *net.UDPConn, srcAddr, dstAddr *net.UDPAddr, message *ike_message.IKEMessage) {
-	ikeLog.Trace("Send IKE message to N3IWF")
+func SendIKEMessageToN3IWF(
+	udpConn *net.UDPConn,
+	srcAddr, dstAddr *net.UDPAddr,
+	message *ike_message.IKEMessage,
+	ikeSAKey *security.IKESAKey,
+) error {
+	ikeLog.Trace("Send IKE message to UE")
 	ikeLog.Trace("Encoding...")
-	pkt, err := message.Encode()
+
+	pkt, err := ike.EncodeEncrypt(message, ikeSAKey, ike_message.Role_Initiator)
 	if err != nil {
-		ikeLog.Errorln(err)
-		return
+		return errors.Wrapf(err, "SendIKEMessageToUE")
 	}
 
+	// As specified in RFC 7296 section 3.1, the IKE message send from/to UDP port 4500
+	// should prepend a 4 bytes zero
 	if srcAddr.Port == 4500 {
 		prependZero := make([]byte, 4)
 		pkt = append(prependZero, pkt...)
@@ -191,13 +217,14 @@ func SendIKEMessageToN3IWF(udpConn *net.UDPConn, srcAddr, dstAddr *net.UDPAddr, 
 	ikeLog.Trace("Sending...")
 	n, err := udpConn.WriteToUDP(pkt, dstAddr)
 	if err != nil {
-		ikeLog.Error(err)
-		return
+		return errors.Wrapf(err, "SendIKEMessageToUE")
 	}
+
 	if n != len(pkt) {
-		ikeLog.Errorf("Not all of the data is sent. Total length: %d. Sent: %d.", len(pkt), n)
-		return
+		return errors.Errorf("SendIKEMessageToUE Not all of the data is sent. Total length: %d. Sent: %d.",
+			len(pkt), n)
 	}
+	return nil
 }
 
 func SendN3IWFInformationExchange(
@@ -210,11 +237,13 @@ func SendN3IWFInformationExchange(
 	responseIKEMessage.BuildIKEHeader(ikeSecurityAssociation.LocalSPI,
 		ikeSecurityAssociation.RemoteSPI, ike_message.INFORMATIONAL, ike_flag,
 		ikeSecurityAssociation.ResponderMessageID)
-	if err := EncryptProcedure(ikeSecurityAssociation, payload, responseIKEMessage); err != nil {
-		ikeLog.Errorf("Encrypting IKE message failed: %+v", err)
-		return
-	}
 
-	SendIKEMessageToN3IWF(n3ue.N3IWFUe.IKEConnection.Conn, n3ue.N3IWFUe.IKEConnection.UEAddr,
-		n3ue.N3IWFUe.IKEConnection.N3IWFAddr, responseIKEMessage)
+	responseIKEMessage.Payloads = append(responseIKEMessage.Payloads, payload...)
+	err := SendIKEMessageToN3IWF(n3ue.N3IWFUe.IKEConnection.Conn,
+		n3ue.N3IWFUe.IKEConnection.UEAddr,
+		n3ue.N3IWFUe.IKEConnection.N3IWFAddr, responseIKEMessage,
+		n3ue.N3IWFUe.N3IWFIKESecurityAssociation.IKESAKey)
+	if err != nil {
+		ikeLog.Errorf("SendN3IWFInformationExchange() : %v", err)
+	}
 }

@@ -1,18 +1,19 @@
 package service
 
 import (
-	"errors"
 	"net"
 	"runtime/debug"
 	"strings"
 
+	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 
-	n3iwfContext "github.com/free5gc/n3iwf/pkg/context"
+	"github.com/free5gc/ike"
+	ike_message "github.com/free5gc/ike/message"
 	"github.com/free5gc/n3iwue/internal/logger"
 	context "github.com/free5gc/n3iwue/pkg/context"
 	"github.com/free5gc/n3iwue/pkg/factory"
-	"github.com/free5gc/n3iwue/pkg/ike"
+	"github.com/free5gc/n3iwue/pkg/ike/handler"
 )
 
 var ikeLog *logrus.Entry
@@ -71,7 +72,7 @@ func listenAndServe(localAddr *net.UDPAddr, errChan chan<- error) {
 		return
 	}
 
-	n3ueContext.N3IWFUe.IKEConnection = &n3iwfContext.UDPSocketInfo{
+	n3ueContext.N3IWFUe.IKEConnection = &context.UDPSocketInfo{
 		Conn:      udpListener,
 		N3IWFAddr: n3iwfUDPAddr,
 		UEAddr:    n3ueUDPAddr,
@@ -95,6 +96,67 @@ func listenAndServe(localAddr *net.UDPAddr, errChan chan<- error) {
 		forwardData := make([]byte, n)
 		copy(forwardData, data[:n])
 
-		go ike.Dispatch(udpListener, localAddr, remoteAddr, forwardData)
+		ikeMsg, err := checkMessage(forwardData, udpListener, localAddr, remoteAddr)
+		if err != nil {
+			ikeLog.Errorf("checkMessage failed: %+v", err)
+			continue
+		}
+
+		go handler.Dispatch(udpListener, localAddr, remoteAddr, ikeMsg)
 	}
+}
+
+func checkMessage(msg []byte, udpConn *net.UDPConn,
+	localAddr, remoteAddr *net.UDPAddr) (
+	*ike_message.IKEMessage, error,
+) {
+	var ikeHeader *ike_message.IKEHeader
+	var ikeMessage *ike_message.IKEMessage
+	var err error
+
+	// parse IKE header and setup IKE context
+	ikeHeader, err = ike_message.ParseIkeHeader(msg)
+	if err != nil {
+		return nil, errors.Wrapf(err, "IKE msg decode header")
+	}
+
+	// check major version
+	if ikeHeader.MajorVersion > 2 {
+		// send INFORMATIONAL type message with INVALID_MAJOR_VERSION Notify payload
+		// For response or needed data
+		responseIKEMessage := new(ike_message.IKEMessage)
+		responseIKEMessage.BuildIKEHeader(ikeHeader.InitiatorSPI, ikeHeader.ResponderSPI,
+			ike_message.INFORMATIONAL, ike_message.ResponseBitCheck, ikeHeader.MessageID)
+		responseIKEMessage.Payloads.BuildNotification(ike_message.TypeNone,
+			ike_message.INVALID_MAJOR_VERSION, nil, nil)
+
+		err = handler.SendIKEMessageToN3IWF(udpConn, localAddr, remoteAddr, responseIKEMessage, nil)
+		if err != nil {
+			return nil, errors.Wrapf(err, "Received an IKE message with higher major version")
+		}
+		return nil, errors.Errorf("Received an IKE message with higher major version")
+	}
+
+	if ikeHeader.ExchangeType == ike_message.IKE_SA_INIT {
+		ikeMessage, err = ike.DecodeDecrypt(msg, ikeHeader,
+			nil, ike_message.Role_Initiator)
+		if err != nil {
+			return nil, errors.Wrapf(err, "Decrypt IkeMsg error")
+		}
+	} else {
+		n3ueCtx := context.N3UESelf()
+
+		if ikeHeader.InitiatorSPI != n3ueCtx.IkeInitiatorSPI {
+			return nil, errors.Errorf("Drop this IKE message due to wrong InitiatorSPI: 0x%016x",
+				ikeHeader.InitiatorSPI)
+		}
+		ikeMessage, err = ike.DecodeDecrypt(msg, ikeHeader,
+			n3ueCtx.N3IWFUe.N3IWFIKESecurityAssociation.IKESAKey,
+			ike_message.Role_Initiator)
+		if err != nil {
+			return nil, errors.Wrapf(err, "Decrypt IkeMsg error")
+		}
+	}
+
+	return ikeMessage, nil
 }

@@ -65,11 +65,13 @@ func SendPduSessionEstablishmentRequest(ue *security.RanUeContext,
 
 func SendDeregistration() {
 	n3ueContext := context.N3UESelf()
-	mobileIdentity5GS := nasType.MobileIdentity5GS{
-		Len:    n3ueContext.GUTI.Len,
-		Buffer: n3ueContext.GUTI.Octet[:],
-	}
-	deregistrationRequest := nasPacket.GetDeregistrationRequest(0x02, 0x01, 0x00, mobileIdentity5GS)
+	if n3ueContext.GUTI != nil {
+		mobileIdentity5GS := nasType.MobileIdentity5GS{
+			Len:    n3ueContext.GUTI.Len,
+			Buffer: n3ueContext.GUTI.Octet[:],
+		}
+		deregistrationRequest := nasPacket.GetDeregistrationRequest(0x02, 0x01, 0x00, mobileIdentity5GS)
 
-	SendNasMsg(n3ueContext.RanUeContext, n3ueContext.N3IWFRanUe.TCPConnection, deregistrationRequest)
+		SendNasMsg(n3ueContext.RanUeContext, n3ueContext.N3IWFRanUe.TCPConnection, deregistrationRequest)
+	}
 }

@@ -6,6 +6,9 @@ configuration:
         IPSecIfaceAddr: 10.0.1.1 # IP address of Nwu interface (IKE) on N3IWF
         IPsecInnerAddr: 10.0.0.1 # IP address of IPsec tunnel enpoint on N3IWF
     N3UEInformation:
+        VisitedPLMN: # Optional
+            MCC: 208 # Mobile Country Code (3 digits string, digit: 0~9)
+            MNC: 93 # Mobile Network Code (2 or 3 digits string, digit: 0~9)  
         IMSI:
             PLMNID: # Public Land Mobile Network ID
                 MCC: 208 # Mobile Country Code (3 digits string, digit: 0~9)

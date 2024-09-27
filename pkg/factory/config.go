@@ -131,6 +131,7 @@ type N3UEInfo struct {
 	IPSecSaCpSPI   uint32       `yaml:"IPSecSA3gppControlPlaneSPI" valid:"hexadecimal,required"`
 	SmPolicy       []PolicyItem `yaml:"SmPolicy" valid:"required"`
 	Security       Security     `yaml:"Security" valid:"required"`
+	VisitedPlmn    *PLMN        `yaml:"VisitedPLMN" valid:"optional"`
 }
 
 func (i *N3UEInfo) validate() (bool, error) {
@@ -200,6 +201,10 @@ func (n *N3UEInfo) GetAMFID() ([]byte, error) {
 func (n *N3UEInfo) GetSNN() string {
 	mcc := n.IMSI.PLMN.MCC
 	mnc := n.IMSI.PLMN.MNC
+	if n.VisitedPlmn != nil {
+		mcc = n.VisitedPlmn.MCC
+		mnc = n.VisitedPlmn.MNC
+	}
 	if len(n.IMSI.PLMN.MNC) == 2 {
 		mnc = "0" + mnc
 	}

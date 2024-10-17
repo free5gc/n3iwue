@@ -12,13 +12,13 @@ require (
 	github.com/free5gc/nas v1.0.7
 	github.com/free5gc/ngap v1.0.8
 	github.com/free5gc/openapi v1.0.8
-	github.com/free5gc/util v1.0.6
+	github.com/free5gc/util v1.0.7-0.20241017071924-da29aef99a1c
 	github.com/go-ping/ping v0.0.0-20211014180314-6e2b003bffdd
 	github.com/pkg/errors v0.9.1
 	github.com/sirupsen/logrus v1.8.1
 	github.com/vishvananda/netlink v1.1.0
-	golang.org/x/net v0.17.0
-	golang.org/x/sys v0.15.0
+	golang.org/x/net v0.23.0
+	golang.org/x/sys v0.18.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -34,6 +34,7 @@ require (
 	github.com/go-playground/validator/v10 v10.14.0 // indirect
 	github.com/goccy/go-json v0.10.2 // indirect
 	github.com/golang-jwt/jwt v3.2.1+incompatible // indirect
+	github.com/golang-jwt/jwt/v5 v5.2.1 // indirect
 	github.com/google/uuid v1.2.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.4 // indirect
@@ -47,7 +48,7 @@ require (
 	github.com/ugorji/go/codec v1.2.11 // indirect
 	github.com/vishvananda/netns v0.0.0-20191106174202-0a2b9b5464df // indirect
 	golang.org/x/arch v0.3.0 // indirect
-	golang.org/x/crypto v0.17.0 // indirect
+	golang.org/x/crypto v0.21.0 // indirect
 	golang.org/x/sync v0.0.0-20220722155255-886fb9371eb4 // indirect
 	golang.org/x/text v0.14.0 // indirect
 	google.golang.org/protobuf v1.33.0 // indirect

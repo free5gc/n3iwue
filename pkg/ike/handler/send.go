@@ -228,21 +228,26 @@ func SendIKEMessageToN3IWF(
 }
 
 func SendN3IWFInformationExchange(
-	n3ue *context.N3UE, payload ike_message.IKEPayloadContainer, isResponse bool,
+	n3ue *context.N3UE,
+	payload *ike_message.IKEPayloadContainer, initiator bool,
+	response bool, messageID uint32,
 ) {
-	ikeSecurityAssociation := n3ue.N3IWFUe.N3IWFIKESecurityAssociation
+	ikeSA := n3ue.N3IWFUe.N3IWFIKESecurityAssociation
 
 	// Build IKE message
-	responseIKEMessage := ike_message.NewMessage(ikeSecurityAssociation.LocalSPI,
-		ikeSecurityAssociation.RemoteSPI, ike_message.INFORMATIONAL, isResponse,
-		true, ikeSecurityAssociation.ResponderMessageID, payload)
+	responseIKEMessage := ike_message.NewMessage(ikeSA.LocalSPI, ikeSA.RemoteSPI,
+		ike_message.INFORMATIONAL, response, initiator, messageID, nil)
 
-	responseIKEMessage.Payloads = append(responseIKEMessage.Payloads, payload...)
+	if payload != nil && len(*payload) > 0 {
+		responseIKEMessage.Payloads = append(responseIKEMessage.Payloads, *payload...)
+	}
+
 	err := SendIKEMessageToN3IWF(n3ue.N3IWFUe.IKEConnection.Conn,
 		n3ue.N3IWFUe.IKEConnection.UEAddr,
 		n3ue.N3IWFUe.IKEConnection.N3IWFAddr, responseIKEMessage,
-		n3ue.N3IWFUe.N3IWFIKESecurityAssociation.IKESAKey)
+		ikeSA.IKESAKey)
 	if err != nil {
-		ikeLog.Errorf("SendN3IWFInformationExchange() : %v", err)
+		ikeLog.Errorf("SendUEInformationExchange err: %+v", err)
+		return
 	}
 }

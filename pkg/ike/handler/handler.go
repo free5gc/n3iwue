@@ -818,7 +818,7 @@ func HandleInformational(
 
 	if len(message.Payloads) == 0 && !message.IsResponse() {
 		ikeLog.Tracef("Receive DPD message")
-		SendN3IWFInformationExchange(n3ueSelf, nil, true)
+		SendN3IWFInformationExchange(n3ueSelf, nil, true, true, message.MessageID)
 	} else {
 		ikeLog.Warnf("Unimplemented informational message")
 	}

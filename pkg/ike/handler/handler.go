@@ -119,7 +119,6 @@ func HandleIKEAUTH(
 	ikeSecurityAssociation := n3ueSelf.N3IWFUe.N3IWFIKESecurityAssociation
 	ue := n3ueSelf.RanUeContext
 
-	ikeMessage := new(ike_message.IKEMessage)
 	var ikePayload ike_message.IKEPayloadContainer
 
 	// var eapIdentifier uint8
@@ -189,13 +188,6 @@ func HandleIKEAUTH(
 
 		// IKE_AUTH - EAP exchange
 		ikeSecurityAssociation.InitiatorMessageID++
-		ikeMessage.BuildIKEHeader(
-			ikeSecurityAssociation.LocalSPI,
-			ikeSecurityAssociation.RemoteSPI,
-			ike_message.IKE_AUTH,
-			ike_message.InitiatorBitCheck,
-			ikeSecurityAssociation.InitiatorMessageID,
-		)
 
 		// EAP-5G vendor type data
 		eapVendorTypeData := make([]byte, 2)
@@ -232,7 +224,15 @@ func HandleIKEAUTH(
 			eapVendorTypeData,
 		)
 
-		ikeMessage.Payloads = append(ikeMessage.Payloads, ikePayload...)
+		ikeMessage := ike_message.NewMessage(
+			ikeSecurityAssociation.LocalSPI,
+			ikeSecurityAssociation.RemoteSPI,
+			ike_message.IKE_AUTH,
+			false, true,
+			ikeSecurityAssociation.InitiatorMessageID,
+			ikePayload,
+		)
+
 		err = SendIKEMessageToN3IWF(
 			n3ueSelf.N3IWFUe.IKEConnection.Conn,
 			n3ueSelf.N3IWFUe.IKEConnection.UEAddr,
@@ -302,13 +302,6 @@ func HandleIKEAUTH(
 
 		// IKE_AUTH - EAP exchange
 		ikeSecurityAssociation.InitiatorMessageID++
-		ikeMessage.BuildIKEHeader(
-			ikeSecurityAssociation.LocalSPI,
-			ikeSecurityAssociation.RemoteSPI,
-			ike_message.IKE_AUTH,
-			ike_message.InitiatorBitCheck,
-			ikeSecurityAssociation.InitiatorMessageID,
-		)
 
 		// EAP-5G vendor type data
 		eapVendorTypeData := make([]byte, 4)
@@ -327,7 +320,15 @@ func HandleIKEAUTH(
 			eapVendorTypeData,
 		)
 
-		ikeMessage.Payloads = append(ikeMessage.Payloads, ikePayload...)
+		ikeMessage := ike_message.NewMessage(
+			ikeSecurityAssociation.LocalSPI,
+			ikeSecurityAssociation.RemoteSPI,
+			ike_message.IKE_AUTH,
+			false, true,
+			ikeSecurityAssociation.InitiatorMessageID,
+			ikePayload,
+		)
+
 		err = SendIKEMessageToN3IWF(
 			n3ueSelf.N3IWFUe.IKEConnection.Conn,
 			n3ueSelf.N3IWFUe.IKEConnection.UEAddr,
@@ -371,13 +372,6 @@ func HandleIKEAUTH(
 
 		// IKE_AUTH - EAP exchange
 		ikeSecurityAssociation.InitiatorMessageID++
-		ikeMessage.BuildIKEHeader(
-			ikeSecurityAssociation.LocalSPI,
-			ikeSecurityAssociation.RemoteSPI,
-			ike_message.IKE_AUTH,
-			ike_message.InitiatorBitCheck,
-			ikeSecurityAssociation.InitiatorMessageID,
-		)
 
 		// EAP-5G vendor type data
 		eapVendorTypeData := make([]byte, 4)
@@ -396,7 +390,15 @@ func HandleIKEAUTH(
 			eapVendorTypeData,
 		)
 
-		ikeMessage.Payloads = append(ikeMessage.Payloads, ikePayload...)
+		ikeMessage := ike_message.NewMessage(
+			ikeSecurityAssociation.LocalSPI,
+			ikeSecurityAssociation.RemoteSPI,
+			ike_message.IKE_AUTH,
+			false, true,
+			ikeSecurityAssociation.InitiatorMessageID,
+			ikePayload,
+		)
+
 		err = SendIKEMessageToN3IWF(
 			n3ueSelf.N3IWFUe.IKEConnection.Conn,
 			n3ueSelf.N3IWFUe.IKEConnection.UEAddr,
@@ -418,13 +420,6 @@ func HandleIKEAUTH(
 
 		// IKE_AUTH - Authentication
 		ikeSecurityAssociation.InitiatorMessageID++
-		ikeMessage.BuildIKEHeader(
-			ikeSecurityAssociation.LocalSPI,
-			ikeSecurityAssociation.RemoteSPI,
-			ike_message.IKE_AUTH,
-			ike_message.InitiatorBitCheck,
-			ikeSecurityAssociation.InitiatorMessageID,
-		)
 
 		// Authentication
 		// Derive Kn3iwf
@@ -486,7 +481,15 @@ func HandleIKEAUTH(
 			nil,
 		)
 
-		ikeMessage.Payloads = append(ikeMessage.Payloads, ikePayload...)
+		ikeMessage := ike_message.NewMessage(
+			ikeSecurityAssociation.LocalSPI,
+			ikeSecurityAssociation.RemoteSPI,
+			ike_message.IKE_AUTH,
+			false, true,
+			ikeSecurityAssociation.InitiatorMessageID,
+			ikePayload,
+		)
+
 		err = SendIKEMessageToN3IWF(
 			n3ueSelf.N3IWFUe.IKEConnection.Conn,
 			n3ueSelf.N3IWFUe.IKEConnection.UEAddr,
@@ -607,7 +610,6 @@ func HandleCREATECHILDSA(
 
 	ikeSecurityAssociation := n3ueSelf.N3IWFUe.N3IWFIKESecurityAssociation
 
-	ikeMessage := new(ike_message.IKEMessage)
 	var ikePayload ike_message.IKEPayloadContainer
 
 	var QoSInfo *qos.PDUQoSInfo
@@ -653,14 +655,6 @@ func HandleCREATECHILDSA(
 		}
 	}
 
-	ikeMessage.BuildIKEHeader(
-		message.InitiatorSPI,
-		message.ResponderSPI,
-		ike_message.CREATE_CHILD_SA,
-		ike_message.ResponseBitCheck|ike_message.InitiatorBitCheck,
-		ikeSecurityAssociation.ResponderMessageID,
-	)
-
 	// SA
 	inboundSPI, err := GenerateSPI(n3ueSelf.N3IWFUe)
 	if err != nil {
@@ -688,7 +682,15 @@ func HandleCREATECHILDSA(
 		localNonce...)
 	ikePayload.BuildNonce(localNonce)
 
-	ikeMessage.Payloads = append(ikeMessage.Payloads, ikePayload...)
+	ikeMessage := ike_message.NewMessage(
+		ikeSecurityAssociation.LocalSPI,
+		ikeSecurityAssociation.RemoteSPI,
+		ike_message.CREATE_CHILD_SA,
+		true, true,
+		ikeSecurityAssociation.InitiatorMessageID,
+		ikePayload,
+	)
+
 	err = SendIKEMessageToN3IWF(
 		n3ueSelf.N3IWFUe.IKEConnection.Conn,
 		n3ueSelf.N3IWFUe.IKEConnection.UEAddr,
@@ -814,9 +816,9 @@ func HandleInformational(
 
 	n3ueSelf = context.N3UESelf()
 
-	if len(message.Payloads) == 0 {
+	if len(message.Payloads) == 0 && !message.IsResponse() {
 		ikeLog.Tracef("Receive DPD message")
-		SendN3IWFInformationExchange(n3ueSelf, nil, ike_message.ResponseBitCheck)
+		SendN3IWFInformationExchange(n3ueSelf, nil, true)
 	} else {
 		ikeLog.Warnf("Unimplemented informational message")
 	}

@@ -115,7 +115,7 @@ func checkMessage(msg []byte, udpConn *net.UDPConn,
 	var err error
 
 	// parse IKE header and setup IKE context
-	ikeHeader, err = ike_message.ParseIkeHeader(msg)
+	ikeHeader, err = ike_message.ParseHeader(msg)
 	if err != nil {
 		return nil, errors.Wrapf(err, "IKE msg decode header")
 	}
@@ -124,12 +124,11 @@ func checkMessage(msg []byte, udpConn *net.UDPConn,
 	if ikeHeader.MajorVersion > 2 {
 		// send INFORMATIONAL type message with INVALID_MAJOR_VERSION Notify payload
 		// For response or needed data
-		responseIKEMessage := new(ike_message.IKEMessage)
-		responseIKEMessage.BuildIKEHeader(ikeHeader.InitiatorSPI, ikeHeader.ResponderSPI,
-			ike_message.INFORMATIONAL, ike_message.ResponseBitCheck, ikeHeader.MessageID)
-		responseIKEMessage.Payloads.BuildNotification(ike_message.TypeNone,
+		payload := new(ike_message.IKEPayloadContainer)
+		payload.BuildNotification(ike_message.TypeNone,
 			ike_message.INVALID_MAJOR_VERSION, nil, nil)
-
+		responseIKEMessage := ike_message.NewMessage(ikeHeader.InitiatorSPI, ikeHeader.ResponderSPI,
+			ike_message.INFORMATIONAL, true, true, ikeHeader.MessageID, *payload)
 		err = handler.SendIKEMessageToN3IWF(udpConn, localAddr, remoteAddr, responseIKEMessage, nil)
 		if err != nil {
 			return nil, errors.Wrapf(err, "Received an IKE message with higher major version")

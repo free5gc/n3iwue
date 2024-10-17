@@ -23,11 +23,10 @@ func SendIKESAINIT() {
 	n3ueContext := context.N3UESelf()
 
 	n3ueContext.IkeInitiatorSPI = factory.N3ueInfo.IkeSaSPI
-	ikeMessage := new(ike_message.IKEMessage)
-	ikeMessage.BuildIKEHeader(n3ueContext.IkeInitiatorSPI, 0, ike_message.IKE_SA_INIT, ike_message.InitiatorBitCheck, 0)
+	payload := new(ike_message.IKEPayloadContainer)
 
 	// Security Association
-	n3ueContext.SecurityAssociation = ikeMessage.Payloads.BuildSecurityAssociation()
+	n3ueContext.SecurityAssociation = payload.BuildSecurityAssociation()
 	// Proposal 1
 	n3ueContext.Proposal = n3ueContext.SecurityAssociation.Proposals.BuildProposal(1, ike_message.TypeIKE, nil)
 	// ENCR
@@ -78,7 +77,7 @@ func SendIKESAINIT() {
 	localPublicKeyExchangeValue := new(big.Int).Exp(generator, n3ueContext.Secert, factor).Bytes()
 	prependZero := make([]byte, len(factor.Bytes())-len(localPublicKeyExchangeValue))
 	localPublicKeyExchangeValue = append(prependZero, localPublicKeyExchangeValue...)
-	ikeMessage.Payloads.BUildKeyExchange(ike_message.DH_2048_BIT_MODP, localPublicKeyExchangeValue)
+	payload.BUildKeyExchange(ike_message.DH_2048_BIT_MODP, localPublicKeyExchangeValue)
 
 	// Nonce
 	localNonceBigInt, err := ike_security.GenerateRandomNumber()
@@ -87,7 +86,10 @@ func SendIKESAINIT() {
 		return
 	}
 	n3ueContext.LocalNonce = localNonceBigInt.Bytes()
-	ikeMessage.Payloads.BuildNonce(n3ueContext.LocalNonce)
+	payload.BuildNonce(n3ueContext.LocalNonce)
+
+	ikeMessage := ike_message.NewMessage(n3ueContext.IkeInitiatorSPI, 0,
+		ike_message.IKE_SA_INIT, false, true, 0, *payload)
 
 	// Send to n3iwf
 	err = SendIKEMessageToN3IWF(n3ueContext.N3IWFUe.IKEConnection.Conn,
@@ -115,16 +117,7 @@ func SendIKEAUTH() {
 
 	n3ueContext := context.N3UESelf()
 
-	ikeMessage := new(ike_message.IKEMessage)
-	ikeMessage.Payloads.Reset()
 	n3ueContext.N3IWFUe.N3IWFIKESecurityAssociation.InitiatorMessageID++
-	ikeMessage.BuildIKEHeader(
-		n3ueContext.N3IWFUe.N3IWFIKESecurityAssociation.LocalSPI,
-		n3ueContext.N3IWFUe.N3IWFIKESecurityAssociation.RemoteSPI,
-		ike_message.IKE_AUTH,
-		ike_message.InitiatorBitCheck,
-		n3ueContext.N3IWFUe.N3IWFIKESecurityAssociation.InitiatorMessageID,
-	)
 
 	var ikePayload ike_message.IKEPayloadContainer
 
@@ -177,7 +170,14 @@ func SendIKEAUTH() {
 		[]byte{255, 255, 255, 255},
 	)
 
-	ikeMessage.Payloads = append(ikeMessage.Payloads, ikePayload...)
+	ikeMessage := ike_message.NewMessage(
+		n3ueContext.N3IWFUe.N3IWFIKESecurityAssociation.LocalSPI,
+		n3ueContext.N3IWFUe.N3IWFIKESecurityAssociation.RemoteSPI,
+		ike_message.IKE_AUTH, false, true,
+		n3ueContext.N3IWFUe.N3IWFIKESecurityAssociation.InitiatorMessageID,
+		ikePayload,
+	)
+
 	err := SendIKEMessageToN3IWF(n3ueContext.N3IWFUe.IKEConnection.Conn, n3ueContext.N3IWFUe.IKEConnection.UEAddr,
 		n3ueContext.N3IWFUe.IKEConnection.N3IWFAddr, ikeMessage,
 		n3ueContext.N3IWFUe.N3IWFIKESecurityAssociation.IKESAKey)
@@ -228,15 +228,14 @@ func SendIKEMessageToN3IWF(
 }
 
 func SendN3IWFInformationExchange(
-	n3ue *context.N3UE, payload ike_message.IKEPayloadContainer, ike_flag uint8,
+	n3ue *context.N3UE, payload ike_message.IKEPayloadContainer, isResponse bool,
 ) {
 	ikeSecurityAssociation := n3ue.N3IWFUe.N3IWFIKESecurityAssociation
-	responseIKEMessage := new(ike_message.IKEMessage)
 
 	// Build IKE message
-	responseIKEMessage.BuildIKEHeader(ikeSecurityAssociation.LocalSPI,
-		ikeSecurityAssociation.RemoteSPI, ike_message.INFORMATIONAL, ike_flag,
-		ikeSecurityAssociation.ResponderMessageID)
+	responseIKEMessage := ike_message.NewMessage(ikeSecurityAssociation.LocalSPI,
+		ikeSecurityAssociation.RemoteSPI, ike_message.INFORMATIONAL, isResponse,
+		true, ikeSecurityAssociation.ResponderMessageID, payload)
 
 	responseIKEMessage.Payloads = append(responseIKEMessage.Payloads, payload...)
 	err := SendIKEMessageToN3IWF(n3ue.N3IWFUe.IKEConnection.Conn,

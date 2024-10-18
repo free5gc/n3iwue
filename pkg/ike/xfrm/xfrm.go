@@ -7,20 +7,52 @@ import (
 
 	"github.com/vishvananda/netlink"
 
-	n3iwf_context "github.com/free5gc/n3iwf/pkg/context"
-	"github.com/free5gc/n3iwf/pkg/ike/xfrm"
+	ike_message "github.com/free5gc/ike/message"
 	context "github.com/free5gc/n3iwue/pkg/context"
 )
 
-// Log
+type XFRMEncryptionAlgorithmType uint16
 
-func init() {
+func (xfrmEncryptionAlgorithmType XFRMEncryptionAlgorithmType) String() string {
+	switch xfrmEncryptionAlgorithmType {
+	case ike_message.ENCR_DES:
+		return "cbc(des)"
+	case ike_message.ENCR_3DES:
+		return "cbc(des3_ede)"
+	case ike_message.ENCR_CAST:
+		return "cbc(cast5)"
+	case ike_message.ENCR_BLOWFISH:
+		return "cbc(blowfish)"
+	case ike_message.ENCR_NULL:
+		return "ecb(cipher_null)"
+	case ike_message.ENCR_AES_CBC:
+		return "cbc(aes)"
+	case ike_message.ENCR_AES_CTR:
+		return "rfc3686(ctr(aes))"
+	default:
+		return ""
+	}
+}
+
+type XFRMIntegrityAlgorithmType uint16
+
+func (xfrmIntegrityAlgorithmType XFRMIntegrityAlgorithmType) String() string {
+	switch xfrmIntegrityAlgorithmType {
+	case ike_message.AUTH_HMAC_MD5_96:
+		return "hmac(md5)"
+	case ike_message.AUTH_HMAC_SHA1_96:
+		return "hmac(sha1)"
+	case ike_message.AUTH_AES_XCBC_96:
+		return "xcbc(aes)"
+	default:
+		return ""
+	}
 }
 
 func ApplyXFRMRule(
 	ue_is_initiator bool,
 	ifId uint32,
-	childSecurityAssociation *n3iwf_context.ChildSecurityAssociation,
+	childSecurityAssociation *context.ChildSecurityAssociation,
 ) error {
 	// Build XFRM information data structure for incoming traffic.
 
@@ -34,23 +66,23 @@ func ApplyXFRMRule(
 	var xfrmEncryptionAlgorithm, xfrmIntegrityAlgorithm *netlink.XfrmStateAlgo
 	if ue_is_initiator {
 		xfrmEncryptionAlgorithm = &netlink.XfrmStateAlgo{
-			Name: xfrm.XFRMEncryptionAlgorithmType(childSecurityAssociation.EncryptionAlgorithm).String(),
+			Name: XFRMEncryptionAlgorithmType(childSecurityAssociation.EncrKInfo.TransformID()).String(),
 			Key:  childSecurityAssociation.ResponderToInitiatorEncryptionKey,
 		}
-		if childSecurityAssociation.IntegrityAlgorithm != 0 {
+		if childSecurityAssociation.IntegKInfo != nil {
 			xfrmIntegrityAlgorithm = &netlink.XfrmStateAlgo{
-				Name: xfrm.XFRMIntegrityAlgorithmType(childSecurityAssociation.IntegrityAlgorithm).String(),
+				Name: XFRMIntegrityAlgorithmType(childSecurityAssociation.IntegKInfo.TransformID()).String(),
 				Key:  childSecurityAssociation.ResponderToInitiatorIntegrityKey,
 			}
 		}
 	} else {
 		xfrmEncryptionAlgorithm = &netlink.XfrmStateAlgo{
-			Name: xfrm.XFRMEncryptionAlgorithmType(childSecurityAssociation.EncryptionAlgorithm).String(),
+			Name: XFRMEncryptionAlgorithmType(childSecurityAssociation.EncrKInfo.TransformID()).String(),
 			Key:  childSecurityAssociation.InitiatorToResponderEncryptionKey,
 		}
-		if childSecurityAssociation.IntegrityAlgorithm != 0 {
+		if childSecurityAssociation.IntegKInfo != nil {
 			xfrmIntegrityAlgorithm = &netlink.XfrmStateAlgo{
-				Name: xfrm.XFRMIntegrityAlgorithmType(childSecurityAssociation.IntegrityAlgorithm).String(),
+				Name: XFRMIntegrityAlgorithmType(childSecurityAssociation.IntegKInfo.TransformID()).String(),
 				Key:  childSecurityAssociation.InitiatorToResponderIntegrityKey,
 			}
 		}
@@ -66,7 +98,7 @@ func ApplyXFRMRule(
 	xfrmState.Ifid = int(ifId)
 	xfrmState.Auth = xfrmIntegrityAlgorithm
 	xfrmState.Crypt = xfrmEncryptionAlgorithm
-	xfrmState.ESN = childSecurityAssociation.ESN
+	xfrmState.ESN = childSecurityAssociation.EsnInfo.GetNeedESN()
 
 	// Commit xfrm state to netlink
 	var err error
@@ -107,12 +139,12 @@ func ApplyXFRMRule(
 	// State
 	if ue_is_initiator {
 		xfrmEncryptionAlgorithm.Key = childSecurityAssociation.InitiatorToResponderEncryptionKey
-		if childSecurityAssociation.IntegrityAlgorithm != 0 {
+		if childSecurityAssociation.IntegKInfo != nil {
 			xfrmIntegrityAlgorithm.Key = childSecurityAssociation.InitiatorToResponderIntegrityKey
 		}
 	} else {
 		xfrmEncryptionAlgorithm.Key = childSecurityAssociation.ResponderToInitiatorEncryptionKey
-		if childSecurityAssociation.IntegrityAlgorithm != 0 {
+		if childSecurityAssociation.IntegKInfo != nil {
 			xfrmIntegrityAlgorithm.Key = childSecurityAssociation.ResponderToInitiatorIntegrityKey
 		}
 	}

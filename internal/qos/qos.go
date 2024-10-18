@@ -3,7 +3,7 @@ package qos
 import (
 	"errors"
 
-	"github.com/free5gc/n3iwf/pkg/ike/message"
+	"github.com/free5gc/ike/message"
 )
 
 type PDUQoSInfo struct {

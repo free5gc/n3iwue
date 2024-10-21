@@ -91,29 +91,15 @@ func SendIKESAINIT() {
 	ikeMessage := ike_message.NewMessage(n3ueContext.IkeInitiatorSPI, 0,
 		ike_message.IKE_SA_INIT, false, true, 0, *payload)
 
-	conn := n3ueContext.IKEConnection[4500]
+	n3ueContext.N3IWFUe.IKEConnection = n3ueContext.IKEConnection[500]
 
-	// Calculate NAT_DETECTION_SOURCE_IP for NAT-T
-	natDetectionSourceIP := make([]byte, 22)
-	binary.BigEndian.PutUint64(natDetectionSourceIP[0:8], n3ueContext.IkeInitiatorSPI)
-	binary.BigEndian.PutUint64(natDetectionSourceIP[8:16], 0)
-	copy(natDetectionSourceIP[16:20], conn.UEAddr.IP.To4())
-	binary.BigEndian.PutUint16(natDetectionSourceIP[20:22], uint16(conn.UEAddr.Port))
-
-	// Build and append notify payload for NAT_DETECTION_SOURCE_IP
-	ikeMessage.Payloads.BuildNotification(
-		ike_message.TypeNone, ike_message.NAT_DETECTION_SOURCE_IP, nil, natDetectionSourceIP)
-
-	// Calculate NAT_DETECTION_DESTINATION_IP for NAT-T
-	natDetectionDestinationIP := make([]byte, 22)
-	binary.BigEndian.PutUint64(natDetectionDestinationIP[0:8], n3ueContext.IkeInitiatorSPI)
-	binary.BigEndian.PutUint64(natDetectionDestinationIP[8:16], 0)
-	copy(natDetectionDestinationIP[16:20], conn.N3IWFAddr.IP.To4())
-	binary.BigEndian.PutUint16(natDetectionDestinationIP[20:22], uint16(conn.N3IWFAddr.Port))
-
-	// Build and append notify payload for NAT_DETECTION_DESTINATION_IP
-	ikeMessage.Payloads.BuildNotification(
-		ike_message.TypeNone, ike_message.NAT_DETECTION_DESTINATION_IP, nil, natDetectionDestinationIP)
+	err = BuildNATDetectNotifPayload(n3ueContext.IkeInitiatorSPI, 0, &ikeMessage.Payloads,
+		n3ueContext.N3IWFUe.IKEConnection.UEAddr,
+		n3ueContext.N3IWFUe.IKEConnection.N3IWFAddr)
+	if err != nil {
+		ikeLog.Errorf("SendIKESAINIT(): %v", err)
+		return
+	}
 
 	// Send to n3iwf
 	err = SendIKEMessageToN3IWF(n3ueContext.N3IWFUe.IKEConnection.Conn,

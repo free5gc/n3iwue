@@ -8,6 +8,7 @@ import (
 	"math/big"
 	"net"
 
+	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 
@@ -52,7 +53,7 @@ const (
 
 func HandleIKESAINIT(
 	udpConn *net.UDPConn,
-	n3iwfAddr, ueAddr *net.UDPAddr,
+	ueAddr, n3iwfAddr *net.UDPAddr,
 	message *ike_message.IKEMessage,
 ) {
 	ikeLog.Infoln("Handle IKESA INIT")
@@ -62,6 +63,7 @@ func HandleIKESAINIT(
 	var notifications []*ike_message.Notification
 	// For NAT-T
 	var ueIsBehindNAT, n3iwfIsBehindNAT bool
+	var err error
 
 	for _, ikePayload := range message.Payloads {
 		switch ikePayload.Type() {
@@ -89,50 +91,12 @@ func HandleIKESAINIT(
 	}
 
 	if len(notifications) != 0 {
-		for _, notification := range notifications {
-			switch notification.NotifyMessageType {
-			case ike_message.NAT_DETECTION_SOURCE_IP:
-				ikeLog.Trace("Received IKE Notify: NAT_DETECTION_SOURCE_IP")
-				// Calculate local NAT_DETECTION_SOURCE_IP hash
-				// : sha1(ispi | rspi | ueip | ueport)
-				localDetectionData := make([]byte, 22)
-				binary.BigEndian.PutUint64(localDetectionData[0:8], message.InitiatorSPI)
-				binary.BigEndian.PutUint64(localDetectionData[8:16], message.ResponderSPI)
-				copy(localDetectionData[16:20], ueAddr.IP.To4())
-				binary.BigEndian.PutUint16(localDetectionData[20:22], uint16(ueAddr.Port))
-
-				sha1HashFunction := sha1.New() // #nosec G401
-				if _, err := sha1HashFunction.Write(localDetectionData); err != nil {
-					ikeLog.Errorf("Hash function write error: %+v", err)
-					return
-				}
-
-				if !bytes.Equal(notification.NotificationData, sha1HashFunction.Sum(nil)) {
-					ikeLog.Printf("ue is behind nat")
-					ueIsBehindNAT = true
-				}
-			case ike_message.NAT_DETECTION_DESTINATION_IP:
-				ikeLog.Trace("Received IKE Notify: NAT_DETECTION_DESTINATION_IP")
-				// Calculate local NAT_DETECTION_SOURCE_IP hash
-				// : sha1(ispi | rspi | n3iwfip | n3iwfport)
-				localDetectionData := make([]byte, 22)
-				binary.BigEndian.PutUint64(localDetectionData[0:8], message.InitiatorSPI)
-				binary.BigEndian.PutUint64(localDetectionData[8:16], message.ResponderSPI)
-				copy(localDetectionData[16:20], n3iwfAddr.IP.To4())
-				binary.BigEndian.PutUint16(localDetectionData[20:22], uint16(n3iwfAddr.Port))
-
-				sha1HashFunction := sha1.New() // #nosec G401
-				if _, err := sha1HashFunction.Write(localDetectionData); err != nil {
-					ikeLog.Errorf("Hash function write error: %+v", err)
-					return
-				}
-
-				if !bytes.Equal(notification.NotificationData, sha1HashFunction.Sum(nil)) {
-					ikeLog.Printf("n3iwf is behind nat")
-					n3iwfIsBehindNAT = true
-				}
-			default:
-			}
+		ueIsBehindNAT, n3iwfIsBehindNAT, err = HandleNATDetect(
+			message.InitiatorSPI, message.ResponderSPI,
+			notifications, ueAddr, n3iwfAddr)
+		if err != nil {
+			ikeLog.Errorf("Handle IKE_SA_INIT: %v", err)
+			return
 		}
 	}
 
@@ -154,7 +118,7 @@ func HandleIKESAINIT(
 		N3IWFIsBehindNAT: n3iwfIsBehindNAT,
 	}
 
-	err := ikeSecurityAssociation.IKESAKey.GenerateKeyForIKESA(ikeSecurityAssociation.ConcatenatedNonce,
+	err = ikeSecurityAssociation.IKESAKey.GenerateKeyForIKESA(ikeSecurityAssociation.ConcatenatedNonce,
 		sharedKeyExchangeData, ikeSecurityAssociation.LocalSPI, ikeSecurityAssociation.RemoteSPI)
 	if err != nil {
 		ikeLog.Errorf("Generate key for IKE SA failed: %+v", err)
@@ -797,6 +761,13 @@ func HandleCREATECHILDSA(
 		return
 	}
 
+	// NAT-T concern
+	if ikeSecurityAssociation.UEIsBehindNAT || ikeSecurityAssociation.N3IWFIsBehindNAT {
+		childSecurityAssociationContextUserPlane.EnableEncapsulate = true
+		childSecurityAssociationContextUserPlane.N3IWFPort = n3iwfAddr.Port
+		childSecurityAssociationContextUserPlane.NATPort = ueAddr.Port
+	}
+
 	n3ueSelf.N3ueInfo.XfrmiId++
 	// Aplly XFRM rules
 	if err = xfrm.ApplyXFRMRule(false, n3ueSelf.N3ueInfo.XfrmiId, childSecurityAssociationContextUserPlane); err != nil {
@@ -886,4 +857,86 @@ func HandleInformational(
 	} else {
 		ikeLog.Warnf("Unimplemented informational message")
 	}
+}
+
+func HandleNATDetect(
+	initiatorSPI, responderSPI uint64,
+	notifications []*ike_message.Notification,
+	ueAddr, n3iwfAddr *net.UDPAddr,
+) (bool, bool, error) {
+	ueBehindNAT := false
+	n3iwfBehindNAT := false
+
+	srcNatDData, err := GenerateNATDetectHash(initiatorSPI, responderSPI, n3iwfAddr)
+	if err != nil {
+		return false, false, errors.Wrapf(err, "handle NATD")
+	}
+
+	dstNatDData, err := GenerateNATDetectHash(initiatorSPI, responderSPI, ueAddr)
+	if err != nil {
+		return false, false, errors.Wrapf(err, "handle NATD")
+	}
+
+	for _, notification := range notifications {
+		switch notification.NotifyMessageType {
+		case ike_message.NAT_DETECTION_SOURCE_IP:
+			ikeLog.Tracef("Received IKE Notify: NAT_DETECTION_SOURCE_IP")
+			if !bytes.Equal(notification.NotificationData, srcNatDData) {
+				ikeLog.Tracef("N3IWF is behind NAT")
+				n3iwfBehindNAT = true
+			}
+		case ike_message.NAT_DETECTION_DESTINATION_IP:
+			ikeLog.Tracef("Received IKE Notify: NAT_DETECTION_DESTINATION_IP")
+			if !bytes.Equal(notification.NotificationData, dstNatDData) {
+				ikeLog.Tracef("UE(SPI: %016x) is behind NAT", responderSPI)
+				ueBehindNAT = true
+			}
+		default:
+		}
+	}
+	return ueBehindNAT, n3iwfBehindNAT, nil
+}
+
+func BuildNATDetectNotifPayload(
+	localSPI uint64, remoteSPI uint64,
+	payload *ike_message.IKEPayloadContainer,
+	ueAddr, n3iwfAddr *net.UDPAddr,
+) error {
+	srcNatDHash, err := GenerateNATDetectHash(localSPI, remoteSPI, ueAddr)
+	if err != nil {
+		return errors.Wrapf(err, "build NATD")
+	}
+	// Build and append notify payload for NAT_DETECTION_SOURCE_IP
+	payload.BuildNotification(
+		ike_message.TypeNone, ike_message.NAT_DETECTION_SOURCE_IP, nil, srcNatDHash)
+
+	dstNatDHash, err := GenerateNATDetectHash(localSPI, remoteSPI, n3iwfAddr)
+	if err != nil {
+		return errors.Wrapf(err, "build NATD")
+	}
+	// Build and append notify payload for NAT_DETECTION_DESTINATION_IP
+	payload.BuildNotification(
+		ike_message.TypeNone, ike_message.NAT_DETECTION_DESTINATION_IP, nil, dstNatDHash)
+
+	return nil
+}
+
+func GenerateNATDetectHash(
+	initiatorSPI, responderSPI uint64,
+	addr *net.UDPAddr,
+) ([]byte, error) {
+	// Calculate NAT_DETECTION hash for NAT-T
+	// : sha1(ispi | rspi | ip | port)
+	natdData := make([]byte, 22)
+	binary.BigEndian.PutUint64(natdData[0:8], initiatorSPI)
+	binary.BigEndian.PutUint64(natdData[8:16], responderSPI)
+	copy(natdData[16:20], addr.IP.To4())
+	binary.BigEndian.PutUint16(natdData[20:22], uint16(addr.Port)) // #nosec G115
+
+	sha1HashFunction := sha1.New() // #nosec G401
+	_, err := sha1HashFunction.Write(natdData)
+	if err != nil {
+		return nil, errors.Wrapf(err, "generate NATD Hash")
+	}
+	return sha1HashFunction.Sum(nil), nil
 }

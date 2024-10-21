@@ -12,7 +12,6 @@ import (
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	"github.com/pkg/errors"
-
 	"github.com/sirupsen/logrus"
 
 	"github.com/free5gc/ike"
@@ -54,7 +53,7 @@ func Run() error {
 	// Listen and serve
 	errChan := make(chan error)
 
-	go listenAndServe(ikeAddrPort, 500, errChan)
+	go listenAndServe(ikeAddrPort, errChan)
 	if err, ok := <-errChan; ok {
 		ikeLog.Errorln(err)
 		return errors.New("IKE service 500 port run failed")
@@ -62,7 +61,7 @@ func Run() error {
 
 	errChan = make(chan error)
 
-	go listenAndServe(nattAddrPort, 4500, errChan)
+	go listenAndServe(nattAddrPort, errChan)
 	if err, ok := <-errChan; ok {
 		ikeLog.Errorln(err)
 		return errors.New("IKE service 4500 port run failed")
@@ -71,7 +70,7 @@ func Run() error {
 	return nil
 }
 
-func listenAndServe(localAddr *net.UDPAddr, port int, errChan chan<- error) {
+func listenAndServe(localAddr *net.UDPAddr, errChan chan<- error) {
 	defer func() {
 		if p := recover(); p != nil {
 			// Print stack for panic to log. Fatalf() will let program exit.
@@ -87,6 +86,7 @@ func listenAndServe(localAddr *net.UDPAddr, port int, errChan chan<- error) {
 	}
 
 	n3ueContext := context.N3UESelf()
+	port := localAddr.Port
 
 	n3iwfUDPAddr, err := net.ResolveUDPAddr("udp", factory.N3iwfInfo.IPSecIfaceAddr+":"+strconv.Itoa(port))
 	if err != nil {
@@ -124,7 +124,7 @@ func listenAndServe(localAddr *net.UDPAddr, port int, errChan chan<- error) {
 		forwardData := make([]byte, n)
 		copy(forwardData, data[:n])
 
-		if localAddr.Port == DEFAULT_NATT_PORT {
+		if port == DEFAULT_NATT_PORT {
 			forwardData, err = handleNattMsg(forwardData, remoteAddr, localAddr, handleESPPacket)
 			if err != nil {
 				ikeLog.Errorf("Handle NATT msg: %v", err)

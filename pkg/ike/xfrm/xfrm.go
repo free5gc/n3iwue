@@ -152,6 +152,14 @@ func ApplyXFRMRule(
 	xfrmState.Src, xfrmState.Dst = xfrmState.Dst, xfrmState.Src
 	xfrmState.Spi = int(childSecurityAssociation.OutboundSPI)
 
+	if childSecurityAssociation.EnableEncapsulate {
+		xfrmState.Encap = &netlink.XfrmStateEncap{
+			Type:    netlink.XFRM_ENCAP_ESPINUDP,
+			SrcPort: childSecurityAssociation.NATPort,
+			DstPort: childSecurityAssociation.N3IWFPort,
+		}
+	}
+
 	// Commit xfrm state to netlink
 	if err = netlink.XfrmStateAdd(xfrmState); err != nil {
 		return fmt.Errorf("Set XFRM state rule failed: %+v", err)

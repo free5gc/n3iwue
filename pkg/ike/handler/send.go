@@ -91,6 +91,16 @@ func SendIKESAINIT() {
 	ikeMessage := ike_message.NewMessage(n3ueContext.IkeInitiatorSPI, 0,
 		ike_message.IKE_SA_INIT, false, true, 0, *payload)
 
+	n3ueContext.N3IWFUe.IKEConnection = n3ueContext.IKEConnection[500]
+
+	err = BuildNATDetectNotifPayload(n3ueContext.IkeInitiatorSPI, 0, &ikeMessage.Payloads,
+		n3ueContext.N3IWFUe.IKEConnection.UEAddr,
+		n3ueContext.N3IWFUe.IKEConnection.N3IWFAddr)
+	if err != nil {
+		ikeLog.Errorf("SendIKESAINIT(): %v", err)
+		return
+	}
+
 	// Send to n3iwf
 	err = SendIKEMessageToN3IWF(n3ueContext.N3IWFUe.IKEConnection.Conn,
 		n3ueContext.N3IWFUe.IKEConnection.UEAddr,
@@ -116,8 +126,9 @@ func SendIKEAUTH() {
 	ikeLog.Tracef("IKE_AUTH message")
 
 	n3ueContext := context.N3UESelf()
+	ikeSA := n3ueContext.N3IWFUe.N3IWFIKESecurityAssociation
 
-	n3ueContext.N3IWFUe.N3IWFIKESecurityAssociation.InitiatorMessageID++
+	ikeSA.InitiatorMessageID++
 
 	var ikePayload ike_message.IKEPayloadContainer
 
@@ -171,12 +182,15 @@ func SendIKEAUTH() {
 	)
 
 	ikeMessage := ike_message.NewMessage(
-		n3ueContext.N3IWFUe.N3IWFIKESecurityAssociation.LocalSPI,
-		n3ueContext.N3IWFUe.N3IWFIKESecurityAssociation.RemoteSPI,
+		ikeSA.LocalSPI, ikeSA.RemoteSPI,
 		ike_message.IKE_AUTH, false, true,
-		n3ueContext.N3IWFUe.N3IWFIKESecurityAssociation.InitiatorMessageID,
+		ikeSA.InitiatorMessageID,
 		ikePayload,
 	)
+
+	if ikeSA.UEIsBehindNAT || ikeSA.N3IWFIsBehindNAT {
+		n3ueContext.N3IWFUe.IKEConnection = n3ueContext.IKEConnection[4500]
+	}
 
 	err := SendIKEMessageToN3IWF(n3ueContext.N3IWFUe.IKEConnection.Conn, n3ueContext.N3IWFUe.IKEConnection.UEAddr,
 		n3ueContext.N3IWFUe.IKEConnection.N3IWFAddr, ikeMessage,

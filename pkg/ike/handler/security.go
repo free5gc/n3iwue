@@ -67,7 +67,7 @@ func BuildEAP5GANParameters() []byte {
 	anParameters = append(anParameters, anParameter...)
 
 	// Build NSSAI
-	anParameter = make([]byte, len(factory.N3ueInfo.SmPolicy))
+	anParameter = make([]byte, 2)
 	var nssai []byte
 
 	for _, SmPolicy := range factory.N3ueInfo.SmPolicy {

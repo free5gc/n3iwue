@@ -134,7 +134,8 @@ type IKESecurityAssociation struct {
 	InitiatorSignedOctets []byte
 
 	// Used for key generating
-	ConcatenatedNonce []byte
+	NonceInitiator []byte
+	NonceResponder []byte
 
 	// State for IKE_AUTH
 	State uint8
@@ -180,6 +181,10 @@ type ChildSecurityAssociation struct {
 	EnableEncapsulate bool
 	N3IWFPort         int
 	NATPort           int
+
+	// Used for key generating
+	NonceInitiator []byte
+	NonceResponder []byte
 }
 
 type UDPSocketInfo struct {

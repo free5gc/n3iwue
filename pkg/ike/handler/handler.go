@@ -111,14 +111,16 @@ func HandleIKESAINIT(
 			PrfInfo:   prf.DecodeTransform(n3ueSelf.Proposal.PseudorandomFunction[0]),
 			DhInfo:    dh.DecodeTransform(n3ueSelf.Proposal.DiffieHellmanGroup[0]),
 		},
-		ConcatenatedNonce: append(n3ueSelf.LocalNonce, remoteNonce...),
+		NonceInitiator: n3ueSelf.LocalNonce,
+		NonceResponder: remoteNonce,
 		ResponderSignedOctets: append(n3ueSelf.N3IWFUe.N3IWFIKESecurityAssociation.
 			ResponderSignedOctets, remoteNonce...),
 		UEIsBehindNAT:    ueIsBehindNAT,
 		N3IWFIsBehindNAT: n3iwfIsBehindNAT,
 	}
+	ConcatenatedNonce := append(ikeSecurityAssociation.NonceInitiator, ikeSecurityAssociation.NonceResponder...)
 
-	err = ikeSecurityAssociation.IKESAKey.GenerateKeyForIKESA(ikeSecurityAssociation.ConcatenatedNonce,
+	err = ikeSecurityAssociation.IKESAKey.GenerateKeyForIKESA(ConcatenatedNonce,
 		sharedKeyExchangeData, ikeSecurityAssociation.LocalSPI, ikeSecurityAssociation.RemoteSPI)
 	if err != nil {
 		ikeLog.Errorf("Generate key for IKE SA failed: %+v", err)
@@ -545,9 +547,13 @@ func HandleIKEAUTH(
 		}
 		// Select TCP traffic
 		childSecurityAssociationContext.SelectedIPProtocol = unix.IPPROTO_TCP
+		childSecurityAssociationContext.NonceInitiator = ikeSecurityAssociation.NonceInitiator
+		childSecurityAssociationContext.NonceResponder = ikeSecurityAssociation.NonceResponder
+		concatenatedNonce := append(childSecurityAssociationContext.NonceInitiator,
+			childSecurityAssociationContext.NonceResponder...)
 
 		err = childSecurityAssociationContext.GenerateKeyForChildSA(ikeSecurityAssociation.IKESAKey,
-			ikeSecurityAssociation.ConcatenatedNonce)
+			concatenatedNonce)
 		if err != nil {
 			ikeLog.Errorf("HandleIKEAUTH Generate key for child SA failed: %+v", err)
 			return
@@ -647,6 +653,7 @@ func HandleCREATECHILDSA(
 	var responseTrafficSelectorInitiator *ike_message.TrafficSelectorInitiator
 	var responseTrafficSelectorResponder *ike_message.TrafficSelectorResponder
 	var err error
+	var nonce []byte
 
 	for _, ikePayload := range message.Payloads {
 		switch ikePayload.Type() {
@@ -679,7 +686,7 @@ func HandleCREATECHILDSA(
 			}
 		case ike_message.TypeNiNr:
 			responseNonce := ikePayload.(*ike_message.Nonce)
-			ikeSecurityAssociation.ConcatenatedNonce = responseNonce.NonceData
+			nonce = responseNonce.NonceData
 		}
 	}
 
@@ -705,9 +712,6 @@ func HandleCREATECHILDSA(
 		return
 	}
 	localNonce := localNonceBigInt.Bytes()
-	ikeSecurityAssociation.ConcatenatedNonce = append(
-		ikeSecurityAssociation.ConcatenatedNonce,
-		localNonce...)
 	ikePayload.BuildNonce(localNonce)
 
 	ikeMessage := ike_message.NewMessage(
@@ -753,9 +757,13 @@ func HandleCREATECHILDSA(
 	}
 	// Select GRE traffic
 	childSecurityAssociationContextUserPlane.SelectedIPProtocol = unix.IPPROTO_GRE
+	childSecurityAssociationContextUserPlane.NonceInitiator = nonce
+	childSecurityAssociationContextUserPlane.NonceResponder = localNonce
+	concatenatedNonce := append(childSecurityAssociationContextUserPlane.NonceInitiator,
+		childSecurityAssociationContextUserPlane.NonceResponder...)
 
 	err = childSecurityAssociationContextUserPlane.GenerateKeyForChildSA(ikeSecurityAssociation.IKESAKey,
-		ikeSecurityAssociation.ConcatenatedNonce)
+		concatenatedNonce)
 	if err != nil {
 		ikeLog.Errorf("HandleCREATECHILDSA() Generate key for child SA failed: %+v", err)
 		return

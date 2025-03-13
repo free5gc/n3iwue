@@ -103,7 +103,7 @@ func checkConfigVersion() error {
 func SyncConfigSQN(offset uint8) error {
 	if sqn, err := strconv.ParseInt(N3ueInfo.Security.SQN, 16, 0); err == nil {
 		sqn = sqn + int64(offset)
-		logger.CfgLog.Infof("Write SQN=%x into config file", sqn)
+		logger.CfgLog.Infof("Write SQN=%12x into config file", sqn)
 		if err = WriteConfigWithKey("SQN", fmt.Sprintf("%x", sqn)); err != nil {
 			return fmt.Errorf("Write config file: %+v", err)
 		}

@@ -175,7 +175,7 @@ func (p *PolicyItem) validate() (bool, error) {
 
 type SNSSAI struct {
 	SST string `yaml:"SST" valid:"hexadecimal,stringlength(1|1),required"`
-	SD  string `yaml:"SD,omitempty" valid:"hexadecimal,stringlength(6|6),required"`
+	SD  string `yaml:"SD,omitempty" valid:"hexadecimal,stringlength(6|6)"`
 }
 
 func (s *SNSSAI) ToBytes() ([]byte, error) {

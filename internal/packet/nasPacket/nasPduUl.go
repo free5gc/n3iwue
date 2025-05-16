@@ -144,17 +144,21 @@ func GetUlNasTransport_PduSessionEstablishmentRequest(pduSessionId uint8, reques
 		ulNasTransport.DNN.SetIei(nasMessage.ULNASTransportDNNType)
 		ulNasTransport.DNN.SetDNN(dnnString)
 	}
+
+	ulNasTransport.SNSSAI = nasType.NewSNSSAI(nasMessage.ULNASTransportSNSSAIType)
+	ulNasTransport.SNSSAI.SetLen(1)
 	if sNssai != nil {
 		var sdTemp [3]uint8
-		sd, err := hex.DecodeString(sNssai.Sd)
-		if err != nil {
-			logger.NasMsgLog.Errorf("sNssai decode error: %+v", err)
+		if sNssai.Sd != "" {
+			sd, err := hex.DecodeString(sNssai.Sd)
+			if err != nil {
+				logger.NasMsgLog.Warnf("sNssai SD decode error: %+v", err)
+			}
+			copy(sdTemp[:], sd)
+			ulNasTransport.SNSSAI.SetSD(sdTemp)
+			ulNasTransport.SNSSAI.SetLen(4)
 		}
-		copy(sdTemp[:], sd)
-		ulNasTransport.SNSSAI = nasType.NewSNSSAI(nasMessage.ULNASTransportSNSSAIType)
-		ulNasTransport.SNSSAI.SetLen(4)
 		ulNasTransport.SNSSAI.SetSST(uint8(sNssai.Sst))
-		ulNasTransport.SNSSAI.SetSD(sdTemp)
 	}
 
 	ulNasTransport.SpareHalfOctetAndPayloadContainerType.SetPayloadContainerType(
@@ -199,17 +203,21 @@ func GetUlNasTransport_PduSessionModificationRequest(pduSessionId uint8, request
 		ulNasTransport.DNN.SetIei(nasMessage.ULNASTransportDNNType)
 		ulNasTransport.DNN.SetDNN(dnnString)
 	}
+
+	ulNasTransport.SNSSAI = nasType.NewSNSSAI(nasMessage.ULNASTransportSNSSAIType)
+	ulNasTransport.SNSSAI.SetLen(1)
 	if sNssai != nil {
 		var sdTemp [3]uint8
-		sd, err := hex.DecodeString(sNssai.Sd)
-		if err != nil {
-			logger.NasMsgLog.Errorf("sNssai SD decode error: %+v", err)
+		if sNssai.Sd != "" {
+			sd, err := hex.DecodeString(sNssai.Sd)
+			if err != nil {
+				logger.NasMsgLog.Warnf("sNssai SD decode error: %+v", err)
+			}
+			copy(sdTemp[:], sd)
+			ulNasTransport.SNSSAI.SetSD(sdTemp)
+			ulNasTransport.SNSSAI.SetLen(4)
 		}
-		copy(sdTemp[:], sd)
-		ulNasTransport.SNSSAI = nasType.NewSNSSAI(nasMessage.ULNASTransportSNSSAIType)
-		ulNasTransport.SNSSAI.SetLen(4)
 		ulNasTransport.SNSSAI.SetSST(uint8(sNssai.Sst))
-		ulNasTransport.SNSSAI.SetSD(sdTemp)
 	}
 
 	ulNasTransport.SpareHalfOctetAndPayloadContainerType.SetPayloadContainerType(
@@ -920,17 +928,20 @@ func GetUlNasTransport_PduSessionReleaseComplete(pduSessionId uint8, requestType
 		ulNasTransport.DNN.SetIei(nasMessage.ULNASTransportDNNType)
 		ulNasTransport.DNN.SetDNN(dnnString)
 	}
+	ulNasTransport.SNSSAI = nasType.NewSNSSAI(nasMessage.ULNASTransportSNSSAIType)
+	ulNasTransport.SNSSAI.SetLen(1)
 	if sNssai != nil {
 		var sdTemp [3]uint8
-		sd, err := hex.DecodeString(sNssai.Sd)
-		if err != nil {
-			logger.NasMsgLog.Warnf("sNssai SD decode error: %+v", err)
+		if sNssai.Sd != "" {
+			sd, err := hex.DecodeString(sNssai.Sd)
+			if err != nil {
+				logger.NasMsgLog.Warnf("sNssai SD decode error: %+v", err)
+			}
+			copy(sdTemp[:], sd)
+			ulNasTransport.SNSSAI.SetSD(sdTemp)
+			ulNasTransport.SNSSAI.SetLen(4)
 		}
-		copy(sdTemp[:], sd)
-		ulNasTransport.SNSSAI = nasType.NewSNSSAI(nasMessage.ULNASTransportSNSSAIType)
-		ulNasTransport.SNSSAI.SetLen(4)
 		ulNasTransport.SNSSAI.SetSST(uint8(sNssai.Sst))
-		ulNasTransport.SNSSAI.SetSD(sdTemp)
 	}
 
 	ulNasTransport.SpareHalfOctetAndPayloadContainerType.SetPayloadContainerType(

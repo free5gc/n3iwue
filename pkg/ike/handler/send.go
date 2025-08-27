@@ -77,7 +77,7 @@ func SendIKESAINIT() {
 	localPublicKeyExchangeValue := new(big.Int).Exp(generator, n3ueContext.Secert, factor).Bytes()
 	prependZero := make([]byte, len(factor.Bytes())-len(localPublicKeyExchangeValue))
 	localPublicKeyExchangeValue = append(prependZero, localPublicKeyExchangeValue...)
-	payload.BUildKeyExchange(ike_message.DH_2048_BIT_MODP, localPublicKeyExchangeValue)
+	payload.BuildKeyExchange(ike_message.DH_2048_BIT_MODP, localPublicKeyExchangeValue)
 
 	// Nonce
 	localNonceBigInt, err := ike_security.GenerateRandomNumber()

@@ -83,4 +83,6 @@ func RemoveIPsecInterfaces() {
 			logger.AppLog.Infof("Delete interface: %s", (*iface).Attrs().Name)
 		}
 	}
+
+	ike_service.CloseIkeService()
 }

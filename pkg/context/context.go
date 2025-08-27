@@ -146,6 +146,9 @@ type IKESecurityAssociation struct {
 	// NAT detection
 	UEIsBehindNAT    bool
 	N3IWFIsBehindNAT bool
+
+	IKESAClosedCh chan struct{}
+	IsUseDPD      bool
 }
 
 func (ikeSA *IKESecurityAssociation) String() string {

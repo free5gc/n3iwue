@@ -50,6 +50,7 @@ func StartProcedure() {
 					AppLog.Fatalf("Start nuwcp service failed: %+v", err)
 					return
 				}
+				handler.StartDPD()
 			case context.PduSessionEst:
 				AppLog.Info("Start PduSession Establishment")
 				done := false

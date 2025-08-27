@@ -290,3 +290,16 @@ func handleESPPacket(srcIP, dstIP *net.UDPAddr, espPacket []byte) error {
 
 	return nil
 }
+
+func CloseIkeService() {
+	n3ueCtx := context.N3UESelf()
+	if n3ueCtx.N3IWFUe.N3IWFIKESecurityAssociation.IsUseDPD {
+		n3ueCtx.N3IWFUe.N3IWFIKESecurityAssociation.IKESAClosedCh <- struct{}{}
+	}
+
+	for _, udpConn := range n3ueCtx.IKEConnection {
+		if err := udpConn.Conn.Close(); err != nil {
+			ikeLog.Errorf("Close udpConn error: %v", err)
+		}
+	}
+}

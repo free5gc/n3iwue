@@ -7,11 +7,14 @@ import (
 	"fmt"
 	"math/big"
 	"net"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 
+	"github.com/free5gc/ike/eap"
+	ike_eap "github.com/free5gc/ike/eap"
 	ike_message "github.com/free5gc/ike/message"
 	ike_security "github.com/free5gc/ike/security"
 	"github.com/free5gc/ike/security/dh"
@@ -145,7 +148,7 @@ func HandleIKEAUTH(
 	var ikePayload ike_message.IKEPayloadContainer
 
 	// var eapIdentifier uint8
-	var eapReq *ike_message.EAP
+	var eapReq *ike_message.PayloadEap
 
 	// AUTH, SAr2, TSi, Tsr, N(NAS_IP_ADDRESS), N(NAS_TCP_PORT)
 	var responseSecurityAssociation *ike_message.SecurityAssociation
@@ -201,7 +204,7 @@ func HandleIKEAUTH(
 			}
 		case ike_message.TypeEAP:
 			ikeLog.Info("Get EAP")
-			eapReq = ikePayload.(*ike_message.EAP)
+			eapReq = ikePayload.(*ike_message.PayloadEap)
 		}
 	}
 
@@ -240,10 +243,10 @@ func HandleIKEAUTH(
 		eapVendorTypeData = append(eapVendorTypeData, nasLength...)
 		eapVendorTypeData = append(eapVendorTypeData, registrationRequest...)
 
-		eap := ikePayload.BuildEAP(ike_message.EAPCodeResponse, eapIdentifier)
-		eap.EAPTypeData.BuildEAPExpanded(
-			ike_message.VendorID3GPP,
-			ike_message.VendorTypeEAP5G,
+		eap := ikePayload.BuildEAP(ike_eap.EapCodeResponse, eapIdentifier)
+		eap.EapTypeData = ike_message.BuildEapExpanded(
+			ike_eap.VendorId3GPP,
+			ike_eap.VendorTypeEAP5G,
 			eapVendorTypeData,
 		)
 
@@ -277,8 +280,8 @@ func HandleIKEAUTH(
 		ikeSecurityAssociation.State++
 
 	case EAP_RegistrationRequest:
-		var eapExpanded *ike_message.EAPExpanded
-		eapExpanded, ok = eapReq.EAPTypeData[0].(*ike_message.EAPExpanded)
+		var eapExpanded *ike_eap.EapExpanded
+		eapExpanded, ok = eapReq.EapTypeData.(*ike_eap.EapExpanded)
 		if !ok {
 			ikeLog.Error("The EAP data is not an EAP expended.")
 			return
@@ -336,10 +339,10 @@ func HandleIKEAUTH(
 		eapVendorTypeData = append(eapVendorTypeData, nasLength...)
 		eapVendorTypeData = append(eapVendorTypeData, pdu...)
 
-		eap := ikePayload.BuildEAP(ike_message.EAPCodeResponse, eapReq.Identifier)
-		eap.EAPTypeData.BuildEAPExpanded(
-			ike_message.VendorID3GPP,
-			ike_message.VendorTypeEAP5G,
+		eap := ikePayload.BuildEAP(ike_eap.EapCodeResponse, eapReq.Identifier)
+		eap.EapTypeData = ike_message.BuildEapExpanded(
+			ike_eap.VendorId3GPP,
+			ike_eap.VendorTypeEAP5G,
 			eapVendorTypeData,
 		)
 
@@ -366,7 +369,7 @@ func HandleIKEAUTH(
 
 		ikeSecurityAssociation.State++
 	case EAP_Authentication:
-		_, ok = eapReq.EAPTypeData[0].(*ike_message.EAPExpanded)
+		_, ok = eapReq.EapTypeData.(*ike_eap.EapExpanded)
 		if !ok {
 			ikeLog.Error("The EAP data is not an EAP expended.")
 			return
@@ -406,10 +409,10 @@ func HandleIKEAUTH(
 		eapVendorTypeData = append(eapVendorTypeData, nasLength...)
 		eapVendorTypeData = append(eapVendorTypeData, pdu...)
 
-		eap := ikePayload.BuildEAP(ike_message.EAPCodeResponse, eapReq.Identifier)
-		eap.EAPTypeData.BuildEAPExpanded(
-			ike_message.VendorID3GPP,
-			ike_message.VendorTypeEAP5G,
+		eap := ikePayload.BuildEAP(ike_eap.EapCodeResponse, eapReq.Identifier)
+		eap.EapTypeData = ike_message.BuildEapExpanded(
+			ike_eap.VendorId3GPP,
+			ike_eap.VendorTypeEAP5G,
 			eapVendorTypeData,
 		)
 
@@ -436,7 +439,7 @@ func HandleIKEAUTH(
 
 		ikeSecurityAssociation.State++
 	case EAP_NASSecurityComplete:
-		if eapReq.Code != ike_message.EAPCodeSuccess {
+		if eapReq.Code != eap.EapCodeSuccess {
 			ikeLog.Error("Not Success")
 			return
 		}
@@ -643,6 +646,7 @@ func HandleCREATECHILDSA(
 	ikeLog.Tracef("Handle CreateChildSA")
 
 	ikeSecurityAssociation := n3ueSelf.N3IWFUe.N3IWFIKESecurityAssociation
+	ikeSecurityAssociation.ResponderMessageID = message.MessageID
 
 	var ikePayload ike_message.IKEPayloadContainer
 
@@ -719,7 +723,7 @@ func HandleCREATECHILDSA(
 		ikeSecurityAssociation.RemoteSPI,
 		ike_message.CREATE_CHILD_SA,
 		true, true,
-		ikeSecurityAssociation.InitiatorMessageID,
+		ikeSecurityAssociation.ResponderMessageID,
 		ikePayload,
 	)
 
@@ -858,12 +862,27 @@ func HandleInformational(
 	ikeLog.Infoln("Handle Informational")
 
 	n3ueSelf = context.N3UESelf()
+	ikeSA := n3ueSelf.N3IWFUe.N3IWFIKESecurityAssociation
 
-	if len(message.Payloads) == 0 && !message.IsResponse() {
-		ikeLog.Tracef("Receive DPD message")
+	var deletePayload *ike_message.Delete
+
+	for _, ikePayload := range message.Payloads {
+		switch ikePayload.Type() {
+		case ike_message.TypeD:
+			deletePayload = ikePayload.(*ike_message.Delete)
+		default:
+			ikeLog.Warnf("Unhandled Ike payload type[%s] informational message", ikePayload.Type().String())
+		}
+	}
+
+	if deletePayload != nil {
+		// TODO: Handle delete payload
+	}
+
+	if !message.IsResponse() {
+		ikeLog.Tracef("Receive DPD message request")
+		ikeSA.ResponderMessageID = message.MessageID
 		SendN3IWFInformationExchange(n3ueSelf, nil, true, true, message.MessageID)
-	} else {
-		ikeLog.Warnf("Unimplemented informational message")
 	}
 }
 
@@ -947,4 +966,35 @@ func GenerateNATDetectHash(
 		return nil, errors.Wrapf(err, "generate NATD Hash")
 	}
 	return sha1HashFunction.Sum(nil), nil
+}
+
+func StartDPD() {
+	ikeLog.Tracef("Start DPD")
+
+	n3ue := context.N3UESelf()
+	dpdInterval := factory.N3ueConfig.Configuration.N3UEInfo.DpdInterval
+	if dpdInterval == 0 {
+		ikeLog.Tracef("DPD is disabled")
+		return
+	}
+
+	ikeSA := n3ue.N3IWFUe.N3IWFIKESecurityAssociation
+	ikeSA.IKESAClosedCh = make(chan struct{})
+	ikeSA.IsUseDPD = true
+
+	timer := time.NewTicker(dpdInterval)
+	go func() {
+		for {
+			select {
+			case <-ikeSA.IKESAClosedCh:
+				close(ikeSA.IKESAClosedCh)
+				timer.Stop()
+				return
+			case <-timer.C:
+				ikeLog.Tracef("DPD is triggered")
+				ikeSA.InitiatorMessageID++
+				SendN3IWFInformationExchange(n3ue, nil, true, false, ikeSA.InitiatorMessageID)
+			}
+		}
+	}()
 }

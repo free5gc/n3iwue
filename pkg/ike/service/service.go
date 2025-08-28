@@ -7,6 +7,7 @@ import (
 	"runtime/debug"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 
 	"github.com/google/gopacket"
@@ -20,6 +21,7 @@ import (
 	context "github.com/free5gc/n3iwue/pkg/context"
 	"github.com/free5gc/n3iwue/pkg/factory"
 	"github.com/free5gc/n3iwue/pkg/ike/handler"
+	"github.com/free5gc/n3iwue/pkg/ike/xfrm"
 )
 
 var ikeLog *logrus.Entry
@@ -36,7 +38,7 @@ func init() {
 	ikeLog = logger.IKELog
 }
 
-func Run() error {
+func Run(wg *sync.WaitGroup) error {
 	ip := factory.N3ueInfo.IPSecIfaceAddr
 	ikeAddrPort, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", ip, DEFAULT_IKE_PORT))
 	if err != nil {
@@ -53,29 +55,32 @@ func Run() error {
 	// Listen and serve
 	errChan := make(chan error)
 
-	go listenAndServe(ikeAddrPort, errChan)
+	go listenAndServe(ikeAddrPort, errChan, wg)
 	if err, ok := <-errChan; ok {
 		ikeLog.Errorln(err)
 		return errors.New("IKE service 500 port run failed")
 	}
+	wg.Add(1)
 
 	errChan = make(chan error)
 
-	go listenAndServe(nattAddrPort, errChan)
+	go listenAndServe(nattAddrPort, errChan, wg)
 	if err, ok := <-errChan; ok {
 		ikeLog.Errorln(err)
 		return errors.New("IKE service 4500 port run failed")
 	}
+	wg.Add(1)
 
 	return nil
 }
 
-func listenAndServe(localAddr *net.UDPAddr, errChan chan<- error) {
+func listenAndServe(localAddr *net.UDPAddr, errChan chan<- error, wg *sync.WaitGroup) {
 	defer func() {
 		if p := recover(); p != nil {
 			// Print stack for panic to log. Fatalf() will let program exit.
 			ikeLog.Fatalf("panic: %v\n%s", p, string(debug.Stack()))
 		}
+		wg.Done()
 	}()
 
 	udpListener, err := net.ListenUDP("udp", localAddr)
@@ -292,6 +297,8 @@ func handleESPPacket(srcIP, dstIP *net.UDPAddr, espPacket []byte) error {
 }
 
 func CloseIkeService() {
+	ikeLog.Infof("Closing IKE service")
+
 	n3ueCtx := context.N3UESelf()
 	if n3ueCtx.N3IWFUe.N3IWFIKESecurityAssociation.IsUseDPD {
 		n3ueCtx.N3IWFUe.N3IWFIKESecurityAssociation.IKESAClosedCh <- struct{}{}
@@ -300,6 +307,12 @@ func CloseIkeService() {
 	for _, udpConn := range n3ueCtx.IKEConnection {
 		if err := udpConn.Conn.Close(); err != nil {
 			ikeLog.Errorf("Close udpConn error: %v", err)
+		}
+	}
+
+	for _, childSA := range n3ueCtx.N3IWFUe.N3IWFChildSecurityAssociation {
+		if err := xfrm.DeleteChildSAXfrm(childSA); err != nil {
+			ikeLog.Errorf("Close XFRM error: %v", err)
 		}
 	}
 }

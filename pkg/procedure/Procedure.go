@@ -3,6 +3,7 @@ package procedure
 import (
 	"fmt"
 	"runtime/debug"
+	"sync"
 	"time"
 
 	"github.com/go-ping/ping"
@@ -25,7 +26,7 @@ func init() {
 	AppLog = logger.AppLog
 }
 
-func StartProcedure() {
+func StartProcedure(wg *sync.WaitGroup) {
 	defer func() {
 		if p := recover(); p != nil {
 			// Print stack for panic to log. Fatalf() will let program exit.
@@ -38,6 +39,7 @@ func StartProcedure() {
 	n3ueSelf.CurrentState = make(chan uint8)
 
 	go func() {
+		defer wg.Done()
 		for {
 			state := <-n3ueSelf.CurrentState
 			switch state {
@@ -46,7 +48,7 @@ func StartProcedure() {
 			case context.Registration_IKEAUTH:
 				handler.SendIKEAUTH()
 			case context.Registration_CreateNWUCP:
-				if err := nwucp_service.Run(); err != nil {
+				if err := nwucp_service.Run(wg); err != nil {
 					AppLog.Fatalf("Start nuwcp service failed: %+v", err)
 					return
 				}
@@ -80,9 +82,13 @@ func StartProcedure() {
 						n3ueSelf.RanUeContext.DLCount.Get())
 					AppLog.Info("Keep connection with N3IWF until receive SIGINT or SIGTERM")
 				}
+			case context.Terminate:
+				AppLog.Info("StartProcedure(): Terminate")
+				return
 			}
 		}
 	}()
+	wg.Add(1)
 	n3ueSelf.CurrentState <- uint8(context.Registration_IKEINIT)
 }
 

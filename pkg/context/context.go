@@ -26,6 +26,9 @@ const (
 	Registration_CreateNWUCP
 	PduSessionEst
 	PduSessionCreated
+
+	// for terminate
+	Terminate = iota + 100
 )
 
 type N3UE struct {

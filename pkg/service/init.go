@@ -13,6 +13,7 @@ import (
 
 	"github.com/free5gc/n3iwue/internal/logger"
 	nwucp_handler "github.com/free5gc/n3iwue/internal/nwucp/handler"
+	nwucp_service "github.com/free5gc/n3iwue/internal/nwucp/service"
 	"github.com/free5gc/n3iwue/internal/util"
 	context "github.com/free5gc/n3iwue/pkg/context"
 	"github.com/free5gc/n3iwue/pkg/factory"
@@ -54,15 +55,14 @@ func Start() {
 
 	wg := sync.WaitGroup{}
 
-	if err := ike_service.Run(); err != nil {
+	if err := ike_service.Run(&wg); err != nil {
 		logger.InitLog.Errorf("Start IKE service failed: %+v", err)
 		return
 	}
 	logger.InitLog.Info("IKE service running.")
-	wg.Add(1)
 
 	logger.InitLog.Info("N3UE running...")
-	procedure.StartProcedure()
+	procedure.StartProcedure(&wg)
 
 	wg.Wait()
 }
@@ -71,6 +71,9 @@ func Terminate() {
 	logger.InitLog.Info("Terminating N3UE...")
 	logger.InitLog.Info("Deleting interfaces created by N3UE")
 	RemoveIPsecInterfaces()
+	ike_service.CloseIkeService()
+	nwucp_service.CloseNWuCP()
+	context.N3UESelf().CurrentState <- uint8(context.Terminate)
 	logger.InitLog.Info("N3UE terminated")
 }
 
@@ -83,6 +86,4 @@ func RemoveIPsecInterfaces() {
 			logger.AppLog.Infof("Delete interface: %s", (*iface).Attrs().Name)
 		}
 	}
-
-	ike_service.CloseIkeService()
 }

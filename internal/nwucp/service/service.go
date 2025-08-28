@@ -5,6 +5,8 @@ import (
 	"errors"
 	"net"
 	"runtime/debug"
+	"strings"
+	"sync"
 
 	"github.com/sirupsen/logrus"
 
@@ -19,27 +21,30 @@ func init() {
 	nwucpLog = logger.NWuCPLog
 }
 
-func Run() error {
+func Run(wg *sync.WaitGroup) error {
 	n3ueSelf := context.N3UESelf()
 
 	errChan := make(chan error)
 
-	go serveConn(n3ueSelf, errChan)
+	go serveConn(n3ueSelf, errChan, wg)
 	if err, ok := <-errChan; ok {
 		nwucpLog.Errorln(err)
 		return errors.New("IKE service run failed")
 	}
+	wg.Add(1)
+
 	nwucpLog.Tracef("Successfully Create CP  %+v", n3ueSelf.N3iwfNASAddr)
 
 	return nil
 }
 
-func serveConn(n3ueSelf *context.N3UE, errChan chan<- error) {
+func serveConn(n3ueSelf *context.N3UE, errChan chan<- error, wg *sync.WaitGroup) {
 	defer func() {
 		if p := recover(); p != nil {
 			// Print stack for panic to log. Fatalf() will let program exit.
 			logger.NWuCPLog.Fatalf("panic: %v\n%s", p, string(debug.Stack()))
 		}
+		wg.Done()
 	}()
 
 	localTCPAddr := &net.TCPAddr{
@@ -55,9 +60,11 @@ func serveConn(n3ueSelf *context.N3UE, errChan chan<- error) {
 	close(errChan)
 
 	defer func() {
-		err := tcpConnWithN3IWF.Close()
-		if err != nil {
-			nwucpLog.Errorf("Error closing connection: %+v", err)
+		if tcpConnWithN3IWF != nil {
+			err := tcpConnWithN3IWF.Close()
+			if err != nil {
+				nwucpLog.Errorf("Error closing connection: %+v", err)
+			}
 		}
 	}()
 
@@ -65,8 +72,8 @@ func serveConn(n3ueSelf *context.N3UE, errChan chan<- error) {
 	for {
 		n, err := tcpConnWithN3IWF.Read(nasEnv)
 		if err != nil {
-			if err.Error() == "EOF" {
-				nwucpLog.Warn("Connection close by peer")
+			if err.Error() == "EOF" || strings.Contains(err.Error(), "use of closed network connection") {
+				nwucpLog.Warn("NWUCP Connection closed")
 				n3ueSelf.N3IWFRanUe.TCPConnection = nil
 				return
 			} else {
@@ -79,5 +86,17 @@ func serveConn(n3ueSelf *context.N3UE, errChan chan<- error) {
 		copy(forwardData, nasEnv[:n])
 
 		go nwucp.Dispatch(tcpConnWithN3IWF, forwardData)
+	}
+}
+
+func CloseNWuCP() {
+	nwucpLog.Infof("Closing NWuCP service")
+
+	n3ueSelf := context.N3UESelf()
+	tcpConn := n3ueSelf.N3IWFRanUe.TCPConnection
+	if tcpConn != nil {
+		if err := tcpConn.Close(); err != nil {
+			nwucpLog.Errorf("CloseNWuCP(): Error closing connection: %+v", err)
+		}
 	}
 }

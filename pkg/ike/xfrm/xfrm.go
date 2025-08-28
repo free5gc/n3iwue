@@ -1,9 +1,10 @@
 package xfrm
 
 import (
-	"errors"
 	"fmt"
 	"net"
+
+	"github.com/pkg/errors"
 
 	"github.com/vishvananda/netlink"
 
@@ -233,4 +234,24 @@ func SetupIPsecXfrmi(
 	n3ueSelf.CreatedIface = append(n3ueSelf.CreatedIface, &xfrmi)
 
 	return xfrmi, nil
+}
+
+func DeleteChildSAXfrm(childSA *context.ChildSecurityAssociation) error {
+	for idx := range childSA.XfrmStateList {
+		xfrmState := childSA.XfrmStateList[idx]
+		if err := netlink.XfrmStateDel(&xfrmState); err != nil {
+			return errors.Wrapf(err, "DeleteChildSaXfrm(): delete xfrm state")
+		}
+	}
+
+	for idx := range childSA.XfrmPolicyList {
+		xfrmPolicy := childSA.XfrmPolicyList[idx]
+		if err := netlink.XfrmPolicyDel(&xfrmPolicy); err != nil {
+			return errors.Wrapf(err, "DeleteChildSaXfrm(): delete xfrm policy")
+		}
+	}
+
+	childSA.XfrmStateList = nil
+	childSA.XfrmPolicyList = nil
+	return nil
 }

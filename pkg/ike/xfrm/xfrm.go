@@ -5,7 +5,6 @@ import (
 	"net"
 
 	"github.com/pkg/errors"
-
 	"github.com/vishvananda/netlink"
 
 	ike_message "github.com/free5gc/ike/message"

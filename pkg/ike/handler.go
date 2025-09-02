@@ -1,4 +1,4 @@
-package handler
+package ike
 
 import (
 	"bytes"
@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"math/big"
 	"net"
-	"time"
 
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -34,14 +33,9 @@ import (
 	"github.com/free5gc/util/ueauth"
 )
 
-var (
-	n3ueSelf = context.N3UESelf()
-	ikeLog   *logrus.Entry
-	nasLog   *logrus.Entry
-)
+var nasLog *logrus.Entry
 
 func init() {
-	ikeLog = logger.IKELog
 	nasLog = logger.NASLog
 }
 
@@ -54,13 +48,43 @@ const (
 	IKEAUTH_Authentication
 )
 
-func HandleIKESAINIT(
-	udpConn *net.UDPConn,
-	ueAddr, n3iwfAddr *net.UDPAddr,
-	message *ike_message.IKEMessage,
+func (s *Server) handleEvent(ikeEvt context.IkeEvt) {
+	switch t := ikeEvt.(type) {
+	case *context.HandleIkeMsgSaInitEvt:
+		s.handleIKESAINIT(t)
+	case *context.HandleIkeMsgAuthEvt:
+		s.handleIKEAUTH(t)
+	case *context.HandleIkeMsgCreateChildSaEvt:
+		s.handleCREATECHILDSA(t)
+	case *context.HandleIkeMsgInformationalEvt:
+		s.handleInformational(t)
+
+	// For Procedure event
+	case *context.StartIkeSaEstablishmentEvt:
+		s.handleStartIkeSaEstablishment()
+	}
+}
+
+func (s *Server) handleStartIkeSaEstablishment() {
+	likeLog := logger.IKELog
+	likeLog.Infoln("Handle Start IKE SA Establishment")
+
+	s.SendIkeSaInit()
+}
+
+func (s *Server) handleIKESAINIT(
+	evt *context.HandleIkeMsgSaInitEvt,
 ) {
+	ikeLog := logger.IKELog
 	ikeLog.Infoln("Handle IKESA INIT")
 
+	udpConnInfo := evt.UdpConnInfo
+	ueAddr := udpConnInfo.UEAddr
+	n3iwfAddr := udpConnInfo.N3IWFAddr
+	message := evt.IkeMsg
+	// packet := evt.Packet
+
+	n3ueSelf := s.Context()
 	var sharedKeyExchangeData []byte
 	var remoteNonce []byte
 	var notifications []*ike_message.Notification
@@ -132,16 +156,21 @@ func HandleIKESAINIT(
 
 	ikeLog.Tracef("%v", ikeSecurityAssociation.String())
 	n3ueSelf.N3IWFUe.N3IWFIKESecurityAssociation = ikeSecurityAssociation
-	n3ueSelf.CurrentState <- uint8(context.Registration_IKEAUTH)
+	s.SendIkeAuth()
 }
 
-func HandleIKEAUTH(
-	udpConn *net.UDPConn,
-	ueAddr, n3iwfAddr *net.UDPAddr,
-	message *ike_message.IKEMessage,
+func (s *Server) handleIKEAUTH(
+	evt *context.HandleIkeMsgAuthEvt,
 ) {
+	ikeLog := logger.IKELog
 	ikeLog.Infoln("Handle IKE AUTH")
 
+	udpConnInfo := evt.UdpConnInfo
+	ueAddr := udpConnInfo.UEAddr
+	n3iwfAddr := udpConnInfo.N3IWFAddr
+	message := evt.IkeMsg
+
+	n3ueSelf := s.Context()
 	ikeSecurityAssociation := n3ueSelf.N3IWFUe.N3IWFIKESecurityAssociation
 	ue := n3ueSelf.RanUeContext
 
@@ -220,7 +249,7 @@ func HandleIKEAUTH(
 		eapVendorTypeData[0] = ike_message.EAP5GType5GNAS
 
 		// AN Parameters
-		anParameters := BuildEAP5GANParameters()
+		anParameters := s.BuildEAP5GANParameters()
 		anParametersLength := make([]byte, 2)
 		binary.BigEndian.PutUint16(anParametersLength, uint16(len(anParameters)))
 		eapVendorTypeData = append(eapVendorTypeData, anParametersLength...)
@@ -259,7 +288,7 @@ func HandleIKEAUTH(
 			ikePayload,
 		)
 
-		err = SendIKEMessageToN3IWF(
+		err = s.SendIkeMsgToN3iwf(
 			n3ueSelf.N3IWFUe.IKEConnection.Conn,
 			n3ueSelf.N3IWFUe.IKEConnection.UEAddr,
 			n3ueSelf.N3IWFUe.IKEConnection.N3IWFAddr,
@@ -355,7 +384,7 @@ func HandleIKEAUTH(
 			ikePayload,
 		)
 
-		err = SendIKEMessageToN3IWF(
+		err = s.SendIkeMsgToN3iwf(
 			n3ueSelf.N3IWFUe.IKEConnection.Conn,
 			n3ueSelf.N3IWFUe.IKEConnection.UEAddr,
 			n3ueSelf.N3IWFUe.IKEConnection.N3IWFAddr,
@@ -425,7 +454,7 @@ func HandleIKEAUTH(
 			ikePayload,
 		)
 
-		err = SendIKEMessageToN3IWF(
+		err = s.SendIkeMsgToN3iwf(
 			n3ueSelf.N3IWFUe.IKEConnection.Conn,
 			n3ueSelf.N3IWFUe.IKEConnection.UEAddr,
 			n3ueSelf.N3IWFUe.IKEConnection.N3IWFAddr,
@@ -516,7 +545,7 @@ func HandleIKEAUTH(
 			ikePayload,
 		)
 
-		err = SendIKEMessageToN3IWF(
+		err = s.SendIkeMsgToN3iwf(
 			n3ueSelf.N3IWFUe.IKEConnection.Conn,
 			n3ueSelf.N3IWFUe.IKEConnection.UEAddr,
 			n3ueSelf.N3IWFUe.IKEConnection.N3IWFAddr,
@@ -634,17 +663,22 @@ func HandleIKEAUTH(
 			return
 		}
 
-		n3ueSelf.CurrentState <- uint8(context.Registration_CreateNWUCP)
+		s.SendProcedureEvt(context.NewNwucpChildSaCreatedEvt())
 	}
 }
 
-func HandleCREATECHILDSA(
-	udpConn *net.UDPConn,
-	ueAddr, n3iwfAddr *net.UDPAddr,
-	message *ike_message.IKEMessage,
+func (s *Server) handleCREATECHILDSA(
+	evt *context.HandleIkeMsgCreateChildSaEvt,
 ) {
+	ikeLog := logger.IKELog
 	ikeLog.Tracef("Handle CreateChildSA")
 
+	udpConnInfo := evt.UdpConnInfo
+	ueAddr := udpConnInfo.UEAddr
+	n3iwfAddr := udpConnInfo.N3IWFAddr
+	message := evt.IkeMsg
+
+	n3ueSelf := s.Context()
 	ikeSecurityAssociation := n3ueSelf.N3IWFUe.N3IWFIKESecurityAssociation
 	ikeSecurityAssociation.ResponderMessageID = message.MessageID
 
@@ -727,7 +761,7 @@ func HandleCREATECHILDSA(
 		ikePayload,
 	)
 
-	err = SendIKEMessageToN3IWF(
+	err = s.SendIkeMsgToN3iwf(
 		n3ueSelf.N3IWFUe.IKEConnection.Conn,
 		n3ueSelf.N3IWFUe.IKEConnection.UEAddr,
 		n3ueSelf.N3IWFUe.IKEConnection.N3IWFAddr,
@@ -854,14 +888,18 @@ func HandleCREATECHILDSA(
 	ikeLog.Infof("Setup XFRM interface %s successfully", n3ueSelf.TemporaryXfrmiName)
 }
 
-func HandleInformational(
-	udpConn *net.UDPConn,
-	ueAddr, n3iwfAddr *net.UDPAddr,
-	message *ike_message.IKEMessage,
+func (s *Server) handleInformational(
+	evt *context.HandleIkeMsgInformationalEvt,
 ) {
+	ikeLog := logger.IKELog
 	ikeLog.Infoln("Handle Informational")
 
-	n3ueSelf = context.N3UESelf()
+	// udpConnInfo := evt.UdpConnInfo
+	// ueAddr := udpConnInfo.UEAddr
+	// n3iwfAddr := udpConnInfo.N3IWFAddr
+	message := evt.IkeMsg
+
+	n3ueSelf := s.Context()
 	ikeSA := n3ueSelf.N3IWFUe.N3IWFIKESecurityAssociation
 
 	var deletePayload *ike_message.Delete
@@ -875,14 +913,16 @@ func HandleInformational(
 		}
 	}
 
-	if deletePayload != nil {
-		// TODO: Handle delete payload
-	}
-
 	if !message.IsResponse() {
-		ikeLog.Tracef("Receive DPD message request")
 		ikeSA.ResponderMessageID = message.MessageID
-		SendN3IWFInformationExchange(n3ueSelf, nil, true, true, message.MessageID)
+		if deletePayload != nil {
+			// TODO: Handle delete payload
+			ikeLog.Infof("Received delete payload, sending deregistration complete event")
+			s.SendProcedureEvt(context.NewDeregistrationCompleteEvt())
+		} else {
+			ikeLog.Tracef("Receive DPD message request")
+		}
+		s.SendN3iwfInformationExchange(n3ueSelf, nil, true, true, message.MessageID)
 	}
 }
 
@@ -891,6 +931,7 @@ func HandleNATDetect(
 	notifications []*ike_message.Notification,
 	ueAddr, n3iwfAddr *net.UDPAddr,
 ) (bool, bool, error) {
+	ikeLog := logger.IKELog
 	ueBehindNAT := false
 	n3iwfBehindNAT := false
 
@@ -966,35 +1007,4 @@ func GenerateNATDetectHash(
 		return nil, errors.Wrapf(err, "generate NATD Hash")
 	}
 	return sha1HashFunction.Sum(nil), nil
-}
-
-func StartDPD() {
-	ikeLog.Tracef("Start DPD")
-
-	n3ue := context.N3UESelf()
-	dpdInterval := factory.N3ueConfig.Configuration.N3UEInfo.DpdInterval
-	if dpdInterval == 0 {
-		ikeLog.Tracef("DPD is disabled")
-		return
-	}
-
-	ikeSA := n3ue.N3IWFUe.N3IWFIKESecurityAssociation
-	ikeSA.IKESAClosedCh = make(chan struct{})
-	ikeSA.IsUseDPD = true
-
-	timer := time.NewTicker(dpdInterval)
-	go func() {
-		for {
-			select {
-			case <-ikeSA.IKESAClosedCh:
-				close(ikeSA.IKESAClosedCh)
-				timer.Stop()
-				return
-			case <-timer.C:
-				ikeLog.Tracef("DPD is triggered")
-				ikeSA.InitiatorMessageID++
-				SendN3IWFInformationExchange(n3ue, nil, true, false, ikeSA.InitiatorMessageID)
-			}
-		}
-	}()
 }

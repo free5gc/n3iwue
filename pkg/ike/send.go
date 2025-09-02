@@ -1,4 +1,4 @@
-package handler
+package ike
 
 import (
 	"encoding/binary"
@@ -12,15 +12,17 @@ import (
 	"github.com/free5gc/ike/security"
 	ike_security "github.com/free5gc/ike/security"
 	"github.com/free5gc/ike/security/dh"
+	"github.com/free5gc/n3iwue/internal/logger"
 	context "github.com/free5gc/n3iwue/pkg/context"
 	"github.com/free5gc/n3iwue/pkg/factory"
 )
 
-func SendIKESAINIT() {
+func (s *Server) SendIkeSaInit() {
+	ikeLog := logger.IKELog
 	ikeLog.Tracef("start IKE_SA_INIT message")
 	var err error
 
-	n3ueContext := context.N3UESelf()
+	n3ueContext := s.Context()
 
 	n3ueContext.IkeInitiatorSPI = factory.N3ueInfo.IkeSaSPI
 	payload := new(ike_message.IKEPayloadContainer)
@@ -102,7 +104,7 @@ func SendIKESAINIT() {
 	}
 
 	// Send to n3iwf
-	err = SendIKEMessageToN3IWF(n3ueContext.N3IWFUe.IKEConnection.Conn,
+	err = s.SendIkeMsgToN3iwf(n3ueContext.N3IWFUe.IKEConnection.Conn,
 		n3ueContext.N3IWFUe.IKEConnection.UEAddr,
 		n3ueContext.N3IWFUe.IKEConnection.N3IWFAddr, ikeMessage, nil)
 	if err != nil {
@@ -122,10 +124,11 @@ func SendIKESAINIT() {
 	n3ueContext.N3IWFUe.N3IWFIKESecurityAssociation = ikeSecurityAssociation
 }
 
-func SendIKEAUTH() {
+func (s *Server) SendIkeAuth() {
+	ikeLog := logger.IKELog
 	ikeLog.Tracef("IKE_AUTH message")
 
-	n3ueContext := context.N3UESelf()
+	n3ueContext := s.Context()
 	ikeSA := n3ueContext.N3IWFUe.N3IWFIKESecurityAssociation
 
 	ikeSA.InitiatorMessageID++
@@ -192,7 +195,7 @@ func SendIKEAUTH() {
 		n3ueContext.N3IWFUe.IKEConnection = n3ueContext.IKEConnection[4500]
 	}
 
-	err := SendIKEMessageToN3IWF(n3ueContext.N3IWFUe.IKEConnection.Conn, n3ueContext.N3IWFUe.IKEConnection.UEAddr,
+	err := s.SendIkeMsgToN3iwf(n3ueContext.N3IWFUe.IKEConnection.Conn, n3ueContext.N3IWFUe.IKEConnection.UEAddr,
 		n3ueContext.N3IWFUe.IKEConnection.N3IWFAddr, ikeMessage,
 		n3ueContext.N3IWFUe.N3IWFIKESecurityAssociation.IKESAKey)
 	if err != nil {
@@ -207,12 +210,13 @@ func SendIKEAUTH() {
 	)
 }
 
-func SendIKEMessageToN3IWF(
+func (s *Server) SendIkeMsgToN3iwf(
 	udpConn *net.UDPConn,
 	srcAddr, dstAddr *net.UDPAddr,
 	message *ike_message.IKEMessage,
 	ikeSAKey *security.IKESAKey,
 ) error {
+	ikeLog := logger.IKELog
 	ikeLog.Trace("Send IKE message to UE")
 	ikeLog.Trace("Encoding...")
 
@@ -241,11 +245,12 @@ func SendIKEMessageToN3IWF(
 	return nil
 }
 
-func SendN3IWFInformationExchange(
+func (s *Server) SendN3iwfInformationExchange(
 	n3ue *context.N3UE,
 	payload *ike_message.IKEPayloadContainer, initiator bool,
 	response bool, messageID uint32,
 ) {
+	ikeLog := logger.IKELog
 	ikeSA := n3ue.N3IWFUe.N3IWFIKESecurityAssociation
 
 	// Build IKE message
@@ -256,7 +261,7 @@ func SendN3IWFInformationExchange(
 		responseIKEMessage.Payloads = append(responseIKEMessage.Payloads, *payload...)
 	}
 
-	err := SendIKEMessageToN3IWF(n3ue.N3IWFUe.IKEConnection.Conn,
+	err := s.SendIkeMsgToN3iwf(n3ue.N3IWFUe.IKEConnection.Conn,
 		n3ue.N3IWFUe.IKEConnection.UEAddr,
 		n3ue.N3IWFUe.IKEConnection.N3IWFAddr, responseIKEMessage,
 		ikeSA.IKESAKey)

@@ -1,85 +1,112 @@
-package service
+package ike
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"net"
 	"runtime/debug"
 	"strconv"
-	"strings"
 	"sync"
 	"syscall"
 
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	"github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
 
 	"github.com/free5gc/ike"
 	ike_message "github.com/free5gc/ike/message"
 	"github.com/free5gc/n3iwue/internal/logger"
-	context "github.com/free5gc/n3iwue/pkg/context"
+	"github.com/free5gc/n3iwue/internal/util"
+	n3iwue_context "github.com/free5gc/n3iwue/pkg/context"
 	"github.com/free5gc/n3iwue/pkg/factory"
-	"github.com/free5gc/n3iwue/pkg/ike/handler"
 	"github.com/free5gc/n3iwue/pkg/ike/xfrm"
 )
 
-var ikeLog *logrus.Entry
-
 const (
-	DEFAULT_IKE_PORT  = 500
-	DEFAULT_NATT_PORT = 4500
+	DEFAULT_IKE_PORT    = 500
+	DEFAULT_NATT_PORT   = 4500
+	IKE_EVENT_CHAN_SIZE = 128
 )
 
 type EspHandler func(srcIP, dstIP *net.UDPAddr, espPkt []byte) error
 
-func init() {
-	// init logger
-	ikeLog = logger.IKELog
+type N3iwue interface {
+	Config() *factory.Config
+	Context() *n3iwue_context.N3UE
+	SendProcedureEvt(evt n3iwue_context.ProcedureEvt)
 }
 
-func Run(wg *sync.WaitGroup) error {
-	ip := factory.N3ueInfo.IPSecIfaceAddr
-	ikeAddrPort, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", ip, DEFAULT_IKE_PORT))
+type Server struct {
+	N3iwue
+	evtCh        chan n3iwue_context.IkeEvt
+	serverCtx    context.Context
+	serverCancel context.CancelFunc
+	serverWg     sync.WaitGroup
+}
+
+func NewServer(n3iwue N3iwue) (*Server, error) {
+	serverCtx, serverCancel := context.WithCancel(context.Background())
+	return &Server{
+		N3iwue:       n3iwue,
+		evtCh:        make(chan n3iwue_context.IkeEvt, IKE_EVENT_CHAN_SIZE),
+		serverCtx:    serverCtx,
+		serverCancel: serverCancel,
+	}, nil
+}
+
+func (s *Server) Run(wg *sync.WaitGroup) error {
+	ikeLog := logger.IKELog
+	ip := s.Config().Configuration.N3UEInfo.IPSecIfaceAddr
+	ikeAddrPort, err := util.ResolveUDPAddrWithLog(fmt.Sprintf("%s:%d", ip, DEFAULT_IKE_PORT), ikeLog)
 	if err != nil {
-		ikeLog.Errorf("Resolve UDP address failed: %+v", err)
-		return errors.Wrapf(err, "ResolveUDPAddr (%s:500)", ip)
+		return err
 	}
 
-	nattAddrPort, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", ip, DEFAULT_NATT_PORT))
+	nattAddrPort, err := util.ResolveUDPAddrWithLog(fmt.Sprintf("%s:%d", ip, DEFAULT_NATT_PORT), ikeLog)
 	if err != nil {
-		ikeLog.Errorf("Resolve UDP address failed: %+v", err)
-		return errors.Wrapf(err, "ResolveUDPAddr (%s:4500)", ip)
+		return err
 	}
 
-	// Listen and serve
+	// Listen and serve on both ports
 	errChan := make(chan error)
 
-	go listenAndServe(ikeAddrPort, errChan, wg)
-	if err, ok := <-errChan; ok {
-		ikeLog.Errorln(err)
-		return errors.New("IKE service 500 port run failed")
-	}
 	wg.Add(1)
+	s.serverWg.Add(1)
+	go s.receiver(ikeAddrPort, errChan, wg)
+	if err, ok := <-errChan; ok {
+		s.serverCancel() // Cancel server context on error
+		return util.WrapServiceError("IKE (port 500)", err)
+	}
 
 	errChan = make(chan error)
 
-	go listenAndServe(nattAddrPort, errChan, wg)
-	if err, ok := <-errChan; ok {
-		ikeLog.Errorln(err)
-		return errors.New("IKE service 4500 port run failed")
-	}
 	wg.Add(1)
+	s.serverWg.Add(1)
+	go s.receiver(nattAddrPort, errChan, wg)
+	if err, ok := <-errChan; ok {
+		s.serverCancel() // Cancel server context on error
+		return util.WrapServiceError("IKE (port 4500)", err)
+	}
 
+	wg.Add(1)
+	s.serverWg.Add(1)
+	go s.dispatcher(wg)
+
+	ikeLog.Infof("IKE server started with event-driven architecture")
 	return nil
 }
 
-func listenAndServe(localAddr *net.UDPAddr, errChan chan<- error, wg *sync.WaitGroup) {
+// receiver implements the UDP message receiving functionality for IKEServer
+func (s *Server) receiver(localAddr *net.UDPAddr, errChan chan<- error, wg *sync.WaitGroup) {
+	ikeLog := logger.IKELog
 	defer func() {
 		if p := recover(); p != nil {
 			// Print stack for panic to log. Fatalf() will let program exit.
 			ikeLog.Fatalf("panic: %v\n%s", p, string(debug.Stack()))
 		}
+		ikeLog.Infof("IKE receiver stopped")
+		s.serverWg.Done() // Signal completion to server waitgroup
 		wg.Done()
 	}()
 
@@ -90,22 +117,25 @@ func listenAndServe(localAddr *net.UDPAddr, errChan chan<- error, wg *sync.WaitG
 		return
 	}
 
-	n3ueContext := context.N3UESelf()
 	port := localAddr.Port
+	cfg := s.Config().Configuration
 
-	n3iwfUDPAddr, err := net.ResolveUDPAddr("udp", factory.N3iwfInfo.IPSecIfaceAddr+":"+strconv.Itoa(port))
+	n3iwfAddr := cfg.N3IWFInfo.IPSecIfaceAddr + ":" + strconv.Itoa(port)
+	n3iwfUDPAddr, err := util.ResolveUDPAddrWithLog(n3iwfAddr, ikeLog)
 	if err != nil {
-		ikeLog.Errorf("Resolve UDP address %s fail: %+v", factory.N3iwfInfo.IPSecIfaceAddr+":"+strconv.Itoa(port), err)
+		errChan <- err
 		return
 	}
 
-	n3ueUDPAddr, err := net.ResolveUDPAddr("udp", factory.N3ueInfo.IPSecIfaceAddr+":"+strconv.Itoa(port))
+	n3ueAddr := cfg.N3UEInfo.IPSecIfaceAddr + ":" + strconv.Itoa(port)
+	n3ueUDPAddr, err := util.ResolveUDPAddrWithLog(n3ueAddr, ikeLog)
 	if err != nil {
-		ikeLog.Errorf("Resolve UDP address %s fail: %+v", factory.N3ueInfo.IPSecIfaceAddr+":"+strconv.Itoa(port), err)
+		errChan <- err
 		return
 	}
 
-	n3ueContext.IKEConnection[port] = &context.UDPSocketInfo{
+	n3iwueCtx := s.Context()
+	n3iwueCtx.IKEConnection[port] = &n3iwue_context.UDPSocketInfo{
 		Conn:      udpListener,
 		N3IWFAddr: n3iwfUDPAddr,
 		UEAddr:    n3ueUDPAddr,
@@ -118,8 +148,8 @@ func listenAndServe(localAddr *net.UDPAddr, errChan chan<- error, wg *sync.WaitG
 	for {
 		n, remoteAddr, err := udpListener.ReadFromUDP(data)
 		if err != nil {
-			if strings.Contains(err.Error(), "use of closed network connection") {
-				ikeLog.Errorf("ReadFromUDP failed: %+v", err)
+			if util.IsConnectionClosedError(err) {
+				ikeLog.Warn("IKE UDP connection closed")
 				return
 			}
 			ikeLog.Errorf("ReadFromUDP failed: %+v", err)
@@ -140,17 +170,44 @@ func listenAndServe(localAddr *net.UDPAddr, errChan chan<- error, wg *sync.WaitG
 			}
 		}
 
-		ikeMsg, err := checkMessage(forwardData, udpListener, localAddr, remoteAddr)
+		ikeMsg, err := s.checkMessage(forwardData, udpListener, localAddr, remoteAddr)
 		if err != nil {
 			ikeLog.Errorf("checkMessage failed: %+v", err)
 			continue
 		}
 
-		go handler.Dispatch(udpListener, localAddr, remoteAddr, ikeMsg)
+		// Create IKE event and send to dispatcher (no fallback goroutine)
+		socketInfo := &n3iwue_context.UDPSocketInfo{
+			Conn:      udpListener,
+			N3IWFAddr: remoteAddr,
+			UEAddr:    localAddr,
+		}
+
+		var evt n3iwue_context.IkeEvt
+		switch ikeMsg.ExchangeType {
+		case ike_message.IKE_SA_INIT:
+			evt = n3iwue_context.NewHandleIkeMsgSaInitEvt(socketInfo, ikeMsg, forwardData)
+		case ike_message.IKE_AUTH:
+			evt = n3iwue_context.NewHandleIkeMsgAuthEvt(socketInfo, ikeMsg, forwardData)
+		case ike_message.CREATE_CHILD_SA:
+			evt = n3iwue_context.NewHandleIkeMsgCreateChildSaEvt(socketInfo, ikeMsg, forwardData)
+		case ike_message.INFORMATIONAL:
+			evt = n3iwue_context.NewHandleIkeMsgInformationalEvt(socketInfo, ikeMsg, forwardData)
+		default:
+			ikeLog.Warnf("receiver(): Unimplemented IKE message type, exchange type: %d", ikeMsg.ExchangeType)
+			continue
+		}
+
+		select {
+		case s.evtCh <- evt:
+			// Event sent successfully
+		default:
+			ikeLog.Errorf("Event channel is full, dropping IKE message")
+		}
 	}
 }
 
-func checkMessage(msg []byte, udpConn *net.UDPConn,
+func (s *Server) checkMessage(msg []byte, udpConn *net.UDPConn,
 	localAddr, remoteAddr *net.UDPAddr) (
 	*ike_message.IKEMessage, error,
 ) {
@@ -173,7 +230,7 @@ func checkMessage(msg []byte, udpConn *net.UDPConn,
 			ike_message.INVALID_MAJOR_VERSION, nil, nil)
 		responseIKEMessage := ike_message.NewMessage(ikeHeader.InitiatorSPI, ikeHeader.ResponderSPI,
 			ike_message.INFORMATIONAL, true, true, ikeHeader.MessageID, *payload)
-		err = handler.SendIKEMessageToN3IWF(udpConn, localAddr, remoteAddr, responseIKEMessage, nil)
+		err = s.SendIkeMsgToN3iwf(udpConn, localAddr, remoteAddr, responseIKEMessage, nil)
 		if err != nil {
 			return nil, errors.Wrapf(err, "Received an IKE message with higher major version")
 		}
@@ -187,7 +244,7 @@ func checkMessage(msg []byte, udpConn *net.UDPConn,
 			return nil, errors.Wrapf(err, "Decrypt IkeMsg error")
 		}
 	} else {
-		n3ueCtx := context.N3UESelf()
+		n3ueCtx := s.Context()
 
 		if ikeHeader.InitiatorSPI != n3ueCtx.IkeInitiatorSPI {
 			return nil, errors.Errorf("Drop this IKE message due to wrong InitiatorSPI: 0x%016x",
@@ -296,18 +353,44 @@ func handleESPPacket(srcIP, dstIP *net.UDPAddr, espPacket []byte) error {
 	return nil
 }
 
-func CloseIkeService() {
-	ikeLog.Infof("Closing IKE service")
-
-	n3ueCtx := context.N3UESelf()
-	if n3ueCtx.N3IWFUe.N3IWFIKESecurityAssociation.IsUseDPD {
-		n3ueCtx.N3IWFUe.N3IWFIKESecurityAssociation.IKESAClosedCh <- struct{}{}
+// SendIkeEvt sends an IKE event to the event channel for processing
+func (s *Server) SendIkeEvt(evt n3iwue_context.IkeEvt) {
+	select {
+	case s.evtCh <- evt:
+		// Event sent successfully
+	default:
+		logger.IKELog.Errorf("Event channel is full, dropping IKE event")
 	}
+}
+
+// Stop implements graceful shutdown of IKE server
+func (s *Server) Stop() {
+	ikeLog := logger.IKELog
+	ikeLog.Infof("Starting IKE server shutdown")
+
+	// Phase 1: Signal all goroutines to prepare for shutdown
+	s.serverCancel()
+
+	// Phase 2: Clean up resources
+	s.cleanupAllResources()
+
+	// Phase 3: Wait for all server goroutines to exit
+	s.serverWg.Wait()
+
+	ikeLog.Info("IKE server shutdown complete")
+}
+
+// cleanupAllResources performs final cleanup of IKE server resources
+func (s *Server) cleanupAllResources() {
+	ikeLog := logger.IKELog
+	ikeLog.Infof("Cleaning up all IKE resources")
+
+	// s.StopDPD()
+
+	n3ueCtx := s.Context()
 
 	for _, udpConn := range n3ueCtx.IKEConnection {
-		if err := udpConn.Conn.Close(); err != nil {
-			ikeLog.Errorf("Close udpConn error: %v", err)
-		}
+		util.SafeCloseConn(udpConn.Conn, ikeLog, "cleanupAllResources")
 	}
 
 	for _, childSA := range n3ueCtx.N3IWFUe.N3IWFChildSecurityAssociation {

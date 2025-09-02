@@ -1,13 +1,13 @@
-package handler
+package nwucp
 
 import (
 	"net"
 	"strconv"
 
+	"github.com/free5gc/n3iwue/internal/logger"
 	"github.com/free5gc/n3iwue/internal/packet/nasPacket"
 	"github.com/free5gc/n3iwue/internal/packet/ngapPacket"
 	"github.com/free5gc/n3iwue/internal/security"
-	context "github.com/free5gc/n3iwue/pkg/context"
 	"github.com/free5gc/n3iwue/pkg/factory"
 	"github.com/free5gc/nas"
 	"github.com/free5gc/nas/nasMessage"
@@ -16,6 +16,7 @@ import (
 )
 
 func SendNasMsg(ue *security.RanUeContext, conn net.Conn, msg []byte) {
+	nwucpLog := logger.NWuCPLog
 	pdu, err := ngapPacket.EncodeNasPduInEnvelopeWithSecurity(
 		ue,
 		msg,
@@ -24,13 +25,13 @@ func SendNasMsg(ue *security.RanUeContext, conn net.Conn, msg []byte) {
 		false,
 	)
 	if err != nil {
-		naslog.Errorf("EncodeNasPduWithSecurity: %+v", err)
+		nwucpLog.Errorf("EncodeNasPduWithSecurity: %+v", err)
 		return
 	}
 
 	_, err = conn.Write(pdu)
 	if err != nil {
-		naslog.Errorf("tcpConnWithN3IWF.Write: %+v", err)
+		nwucpLog.Errorf("tcpConnWithN3IWF.Write: %+v", err)
 		return
 	}
 }
@@ -38,6 +39,7 @@ func SendNasMsg(ue *security.RanUeContext, conn net.Conn, msg []byte) {
 func SendPduSessionEstablishmentRequest(ue *security.RanUeContext,
 	conn net.Conn, pduSessionId uint8,
 ) error {
+	nwucpLog := logger.NWuCPLog
 	sst, err := strconv.ParseInt(factory.N3ueInfo.SmPolicy[0].SNSSAI.SST, 16, 0)
 	if err != nil {
 		return err
@@ -59,12 +61,12 @@ func SendPduSessionEstablishmentRequest(ue *security.RanUeContext,
 	copy(forwardData, pdu[:])
 
 	SendNasMsg(ue, conn, forwardData)
-	naslog.Tracef("send nas complete")
+	nwucpLog.Tracef("send nas complete")
 	return nil
 }
 
-func SendDeregistration() {
-	n3ueContext := context.N3UESelf()
+func (s *Server) SendDeregistration() {
+	n3ueContext := s.Context()
 	if n3ueContext.GUTI != nil {
 		mobileIdentity5GS := nasType.MobileIdentity5GS{
 			Len:    n3ueContext.GUTI.Len,

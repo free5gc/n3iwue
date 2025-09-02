@@ -51,7 +51,6 @@ type N3UE struct {
 	N3iwfNASAddr         *net.TCPAddr
 	PduSessionCount      uint8
 	CreatedIface         []*netlink.Link
-	CurrentState         chan uint8
 	Kn3iwf               []uint8
 	GUTI                 *nasType.GUTI5G
 	IKEConnection        map[int]*UDPSocketInfo

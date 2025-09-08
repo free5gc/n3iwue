@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/big"
 	"net"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -58,11 +59,16 @@ func (s *Server) handleEvent(ikeEvt context.IkeEvt) {
 		s.handleCREATECHILDSA(t)
 	case *context.HandleIkeMsgInformationalEvt:
 		s.handleInformational(t)
+	case *context.IkeRetransTimeoutEvt:
+		s.handleIkeRetransTimeout()
 
 	// For Procedure event
 	case *context.StartIkeSaEstablishmentEvt:
 		s.handleStartIkeSaEstablishment()
+	default:
+		logger.IKELog.Errorf("Unknown IKE event: %+v", ikeEvt.Type())
 	}
+
 }
 
 func (s *Server) handleStartIkeSaEstablishment() {
@@ -1007,4 +1013,67 @@ func GenerateNATDetectHash(
 		return nil, errors.Wrapf(err, "generate NATD Hash")
 	}
 	return sha1HashFunction.Sum(nil), nil
+}
+
+// handleIkeRetransTimeoutEvt handles IKE retransmission timeout events
+func (s *Server) handleIkeRetransTimeout() {
+	ikeLog := logger.IKELog
+	ikeLog.Tracef("Handle IKE retransmission timeout")
+
+	n3ueCtx := s.Context()
+	if n3ueCtx.N3IWFUe == nil || n3ueCtx.N3IWFUe.N3IWFIKESecurityAssociation == nil {
+		ikeLog.Warn("No IKE SA found for retransmission")
+		return
+	}
+
+	ikeSA := n3ueCtx.N3IWFUe.N3IWFIKESecurityAssociation
+
+	// Get retransmit information
+	timer := ikeSA.GetReqRetTimer()
+	prevReq := ikeSA.GetReqRetPrevReq()
+	udpConnInfo := ikeSA.GetReqRetUdpConnInfo()
+
+	if timer == nil || prevReq == nil || udpConnInfo == nil {
+		ikeLog.Warn("Incomplete retransmit information, cannot retransmit")
+		ikeSA.StopReqRetTimer()
+		return
+	}
+
+	// Check if we have retries left
+	if timer.GetRetryCount() == 0 {
+		ikeLog.Warnf("Maximum retransmission attempts reached, cleaning up")
+		ikeSA.StopReqRetTimer()
+		// In a full implementation, this might trigger IKE SA cleanup or failure handling
+		return
+	}
+
+	// Increment retry count and retransmit the packet
+	timer.DecrementRetryCount()
+	ikeLog.Tracef("Retransmitting IKE packet (retry %d/%d)",
+		timer.GetRetryCount(), timer.MaxRetryTimes)
+
+	// Send the retransmitted packet
+	_, err := udpConnInfo.Conn.WriteToUDP(prevReq, udpConnInfo.N3IWFAddr)
+	if err != nil {
+		ikeLog.Errorf("Failed to retransmit IKE packet: %v", err)
+		ikeSA.StopReqRetTimer()
+		return
+	}
+
+	delayTime := timer.GetNextDelay()
+	timer.Timer = time.AfterFunc(delayTime, func() {
+		s.SendIkeEvt(context.NewIkeRetransTimeoutEvt())
+	})
+}
+
+// stopRetransmitTimerForResponse stops retransmit timer when receiving response messages
+func (s *Server) stopRetransmitTimerForResponse() {
+	n3ueCtx := s.Context()
+	if n3ueCtx.N3IWFUe != nil && n3ueCtx.N3IWFUe.N3IWFIKESecurityAssociation != nil {
+		ikeSA := n3ueCtx.N3IWFUe.N3IWFIKESecurityAssociation
+		if ikeSA.GetReqRetTimer() != nil {
+			logger.IKELog.Tracef("Stopping retransmit timer due to received response")
+			ikeSA.StopReqRetTimer()
+		}
+	}
 }

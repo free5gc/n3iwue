@@ -16,6 +16,9 @@ const (
 
 	// For Procedure event
 	StartIkeSaEstablishment
+
+	// For retransmit event
+	IkeRetransTimeout
 )
 
 var ikeEvtTypeStr = []string{
@@ -27,6 +30,9 @@ var ikeEvtTypeStr = []string{
 
 	// For Procedure event
 	StartIkeSaEstablishment: "StartIkeSaEstablishment",
+
+	// For retransmit event
+	IkeRetransTimeout: "IkeRetransTimeout",
 }
 
 func (e IkeEventType) String() string {
@@ -140,4 +146,16 @@ func (evt *StartIkeSaEstablishmentEvt) Type() IkeEventType {
 
 func NewStartIkeSaEstablishmentEvt() *StartIkeSaEstablishmentEvt {
 	return &StartIkeSaEstablishmentEvt{}
+}
+
+// For Retransmit event
+
+type IkeRetransTimeoutEvt struct{}
+
+func (evt *IkeRetransTimeoutEvt) Type() IkeEventType {
+	return IkeRetransTimeout
+}
+
+func NewIkeRetransTimeoutEvt() *IkeRetransTimeoutEvt {
+	return &IkeRetransTimeoutEvt{}
 }

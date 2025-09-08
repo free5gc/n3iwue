@@ -1,9 +1,13 @@
 package context
 
 import (
+	"bytes"
+	"crypto/sha1"
 	"fmt"
+	"math"
 	"math/big"
 	"net"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/vishvananda/netlink"
@@ -121,6 +125,27 @@ type N3IWFRanUe struct {
 	PduSessionReleaseList            ngapType.PDUSessionResourceReleasedListRelRes
 }
 
+// RetransmitTimer represents a simple retransmit timer
+type RetransmitTimer struct {
+	Timer            *time.Timer
+	RemainingRetries int
+	factory.ExponentialTimerValue
+}
+
+// ReqRetransmitInfo stores retransmit info for N3UE's request messages
+type ReqRetransmitInfo struct {
+	PrevReq         []byte           // Previous request packet for retransmission
+	UdpConnInfo     *UDPSocketInfo   // UDP connection info for retransmission
+	RetransmitTimer *RetransmitTimer // Timer for retransmission
+}
+
+// RspRetransmitInfo stores retransmit info for responses to peer's request messages
+type RspRetransmitInfo struct {
+	PrevReqHash [sha1.Size]byte // Hash of the previous request for duplicate detection
+	PrevRsp     []byte          // Previous response packet for retransmission
+	UdpConnInfo *UDPSocketInfo  // UDP connection info for retransmission
+}
+
 type IKESecurityAssociation struct {
 	*ike_security.IKESAKey
 	// SPI
@@ -151,6 +176,10 @@ type IKESecurityAssociation struct {
 
 	IKESAClosedCh chan struct{}
 	IsUseDPD      bool
+
+	// Retransmit information
+	RspRetransmitInfo *RspRetransmitInfo // store the retransmit info for responses to peer's request
+	ReqRetransmitInfo *ReqRetransmitInfo // store the retransmit info for N3UE's request
 }
 
 func (ikeSA *IKESecurityAssociation) String() string {
@@ -239,4 +268,132 @@ func (ikeUe *N3IWFIkeUe) CompleteChildSA(msgID uint32, outboundSPI uint32,
 	ikeUe.N3IWFChildSecurityAssociation[childSA.InboundSPI] = childSA
 
 	return childSA, nil
+}
+
+// ===== IKE Security Association Retransmit Methods =====
+
+// Request retransmit methods (for N3UE's requests)
+func (ikeSA *IKESecurityAssociation) GetReqRetPrevReq() []byte {
+	if ikeSA.ReqRetransmitInfo == nil {
+		return nil
+	}
+	return ikeSA.ReqRetransmitInfo.PrevReq
+}
+
+func (ikeSA *IKESecurityAssociation) GetReqRetTimer() *RetransmitTimer {
+	if ikeSA.ReqRetransmitInfo == nil {
+		return nil
+	}
+	return ikeSA.ReqRetransmitInfo.RetransmitTimer
+}
+
+func (ikeSA *IKESecurityAssociation) GetReqRetUdpConnInfo() *UDPSocketInfo {
+	if ikeSA.ReqRetransmitInfo == nil {
+		return nil
+	}
+	return ikeSA.ReqRetransmitInfo.UdpConnInfo
+}
+
+func (ikeSA *IKESecurityAssociation) StoreReqRetPrevReq(pkt []byte) {
+	if ikeSA.ReqRetransmitInfo == nil {
+		ikeSA.ReqRetransmitInfo = &ReqRetransmitInfo{}
+	}
+	ikeSA.ReqRetransmitInfo.PrevReq = pkt
+}
+
+func (ikeSA *IKESecurityAssociation) StoreReqRetUdpConnInfo(udpConnInfo *UDPSocketInfo) {
+	if ikeSA.ReqRetransmitInfo == nil {
+		ikeSA.ReqRetransmitInfo = &ReqRetransmitInfo{}
+	}
+	ikeSA.ReqRetransmitInfo.UdpConnInfo = udpConnInfo
+}
+
+func (ikeSA *IKESecurityAssociation) StoreReqRetTimer(timer *RetransmitTimer) {
+	if ikeSA.ReqRetransmitInfo == nil {
+		ikeSA.ReqRetransmitInfo = &ReqRetransmitInfo{}
+	}
+	ikeSA.ReqRetransmitInfo.RetransmitTimer = timer
+}
+
+func (ikeSA *IKESecurityAssociation) StopReqRetTimer() {
+	if ikeSA.ReqRetransmitInfo == nil {
+		return
+	}
+	if ikeSA.ReqRetransmitInfo.RetransmitTimer != nil {
+		if ikeSA.ReqRetransmitInfo.RetransmitTimer.Timer != nil {
+			ikeSA.ReqRetransmitInfo.RetransmitTimer.Timer.Stop()
+		}
+		ikeSA.ReqRetransmitInfo.RetransmitTimer = nil
+	}
+}
+
+// Response retransmit methods (for responses to peer's requests)
+func (ikeSA *IKESecurityAssociation) GetRspRetPrevReqHash() [sha1.Size]byte {
+	if ikeSA.RspRetransmitInfo == nil {
+		return [sha1.Size]byte{}
+	}
+	return ikeSA.RspRetransmitInfo.PrevReqHash
+}
+
+func (ikeSA *IKESecurityAssociation) GetRspRetPrevRsp() []byte {
+	if ikeSA.RspRetransmitInfo == nil {
+		return nil
+	}
+	return ikeSA.RspRetransmitInfo.PrevRsp
+}
+
+func (ikeSA *IKESecurityAssociation) GetRspRetUdpConnInfo() *UDPSocketInfo {
+	if ikeSA.RspRetransmitInfo == nil {
+		return nil
+	}
+	return ikeSA.RspRetransmitInfo.UdpConnInfo
+}
+
+func (ikeSA *IKESecurityAssociation) StoreRspRetPrevRsp(pkt []byte) {
+	if ikeSA.RspRetransmitInfo == nil {
+		ikeSA.RspRetransmitInfo = &RspRetransmitInfo{}
+	}
+	ikeSA.RspRetransmitInfo.PrevRsp = pkt
+}
+
+func (ikeSA *IKESecurityAssociation) StoreRspRetUdpConnInfo(udpConnInfo *UDPSocketInfo) {
+	if ikeSA.RspRetransmitInfo == nil {
+		ikeSA.RspRetransmitInfo = &RspRetransmitInfo{}
+	}
+	ikeSA.RspRetransmitInfo.UdpConnInfo = udpConnInfo
+}
+
+func (ikeSA *IKESecurityAssociation) StoreRspRetPrevReqHash(pkt []byte) {
+	if ikeSA.RspRetransmitInfo == nil {
+		ikeSA.RspRetransmitInfo = &RspRetransmitInfo{}
+	}
+
+	hash := sha1.Sum(pkt)
+	if !bytes.Equal(ikeSA.RspRetransmitInfo.PrevReqHash[:], hash[:]) {
+		// Reset RspRetransmitInfo for the new request
+		ikeSA.RspRetransmitInfo.UdpConnInfo = nil
+		ikeSA.RspRetransmitInfo.PrevRsp = nil
+	}
+	ikeSA.RspRetransmitInfo.PrevReqHash = hash
+}
+
+// Retransmit timer methods
+func (rt *RetransmitTimer) Stop() {
+	if rt.Timer != nil {
+		rt.Timer.Stop()
+	}
+}
+
+func (rt *RetransmitTimer) GetRetryCount() int {
+	return rt.RemainingRetries
+}
+
+func (rt *RetransmitTimer) DecrementRetryCount() {
+	rt.RemainingRetries--
+}
+
+func (rt *RetransmitTimer) GetNextDelay() time.Duration {
+	// Exponential backoff: duration = expireTime * base^(current retry count)
+	exponential := math.Pow(float64(rt.Base), float64(rt.MaxRetryTimes-rt.RemainingRetries))
+	return time.Duration(exponential) * rt.ExpireTime
 }

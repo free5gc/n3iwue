@@ -176,6 +176,10 @@ func (s *Server) receiver(localAddr *net.UDPAddr, errChan chan<- error, wg *sync
 			continue
 		}
 
+		if ikeMsg.IsResponse() {
+			s.stopRetransmitTimerForResponse()
+		}
+
 		// Create IKE event and send to dispatcher (no fallback goroutine)
 		socketInfo := &n3iwue_context.UDPSocketInfo{
 			Conn:      udpListener,

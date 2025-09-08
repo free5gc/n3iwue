@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"math/big"
 	"net"
+	"time"
 
 	"github.com/pkg/errors"
 
@@ -217,12 +218,12 @@ func (s *Server) SendIkeMsgToN3iwf(
 	ikeSAKey *security.IKESAKey,
 ) error {
 	ikeLog := logger.IKELog
-	ikeLog.Trace("Send IKE message to UE")
+	ikeLog.Trace("Send IKE message to N3IWF")
 	ikeLog.Trace("Encoding...")
 
 	pkt, err := ike.EncodeEncrypt(message, ikeSAKey, ike_message.Role_Initiator)
 	if err != nil {
-		return errors.Wrapf(err, "SendIKEMessageToUE")
+		return errors.Wrapf(err, "SendIkeMsgToN3iwf")
 	}
 
 	// As specified in RFC 7296 section 3.1, the IKE message send from/to UDP port 4500
@@ -235,13 +236,25 @@ func (s *Server) SendIkeMsgToN3iwf(
 	ikeLog.Trace("Sending...")
 	n, err := udpConn.WriteToUDP(pkt, dstAddr)
 	if err != nil {
-		return errors.Wrapf(err, "SendIKEMessageToUE")
+		return errors.Wrapf(err, "SendIkeMsgToN3iwf")
 	}
 
 	if n != len(pkt) {
-		return errors.Errorf("SendIKEMessageToUE Not all of the data is sent. Total length: %d. Sent: %d.",
+		return errors.Errorf("SendIkeMsgToN3iwf Not all of the data is sent. Total length: %d. Sent: %d.",
 			len(pkt), n)
 	}
+
+	// Set retransmit context if this is a request message and we have an IKE SA
+	n3ueCtx := s.Context()
+	if n3ueCtx.N3IWFUe != nil && n3ueCtx.N3IWFUe.N3IWFIKESecurityAssociation != nil && !message.IsResponse() {
+		udpSocketInfo := &context.UDPSocketInfo{
+			Conn:      udpConn,
+			N3IWFAddr: dstAddr,
+			UEAddr:    srcAddr,
+		}
+		s.SetRetransmitCtx(n3ueCtx.N3IWFUe.N3IWFIKESecurityAssociation, pkt, udpSocketInfo, message.IsResponse())
+	}
+
 	return nil
 }
 
@@ -269,4 +282,52 @@ func (s *Server) SendN3iwfInformationExchange(
 		ikeLog.Errorf("SendUEInformationExchange err: %+v", err)
 		return
 	}
+}
+
+// ===== IKE Retransmit Methods =====
+
+// SetRetransmitCtx sets up retransmit context for IKE messages
+func (s *Server) SetRetransmitCtx(
+	ikeSA *context.IKESecurityAssociation,
+	pkt []byte,
+	udpConnInfo *context.UDPSocketInfo,
+	isResponse bool,
+) {
+	if ikeSA == nil {
+		return
+	}
+
+	if isResponse {
+		// Store response retransmit info
+		ikeSA.StoreRspRetPrevRsp(pkt)
+		ikeSA.StoreRspRetUdpConnInfo(udpConnInfo)
+	} else {
+		// Store request retransmit info and set timer for requests only
+		ikeSA.StoreReqRetPrevReq(pkt)
+		ikeSA.StoreReqRetUdpConnInfo(udpConnInfo)
+		s.SetRetransmitTimer(ikeSA)
+	}
+}
+
+// SetRetransmitTimer sets up retransmit timer for IKE requests
+func (s *Server) SetRetransmitTimer(ikeSA *context.IKESecurityAssociation) {
+	retransCfg := factory.N3ueInfo.IkeRetransmit
+	timer := &context.RetransmitTimer{
+		ExponentialTimerValue: *factory.N3ueInfo.IkeRetransmit,
+	}
+	if retransCfg.Enable {
+		timer.Base = retransCfg.Base
+	} else {
+		timer.Base = 1
+		timer.MaxRetryTimes = 0
+	}
+	timer.RemainingRetries = retransCfg.MaxRetryTimes
+
+	// Start the timer
+	delayTime := timer.GetNextDelay()
+	timer.Timer = time.AfterFunc(delayTime, func() {
+		s.SendIkeEvt(context.NewIkeRetransTimeoutEvt())
+	})
+
+	ikeSA.StoreReqRetTimer(timer)
 }

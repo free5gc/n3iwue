@@ -52,13 +52,25 @@ const (
 func (s *Server) handleEvent(ikeEvt context.IkeEvt) {
 	switch t := ikeEvt.(type) {
 	case *context.HandleIkeMsgSaInitEvt:
-		s.handleIKESAINIT(t)
+		// Check for retransmit before processing
+		if s.shouldProcessRetransmit(t.IkeMsg, t.Packet) {
+			s.handleIKESAINIT(t)
+		}
 	case *context.HandleIkeMsgAuthEvt:
-		s.handleIKEAUTH(t)
+		// Check for retransmit before processing
+		if s.shouldProcessRetransmit(t.IkeMsg, t.Packet) {
+			s.handleIKEAUTH(t)
+		}
 	case *context.HandleIkeMsgCreateChildSaEvt:
-		s.handleCREATECHILDSA(t)
+		// Check for retransmit before processing
+		if s.shouldProcessRetransmit(t.IkeMsg, t.Packet) {
+			s.handleCREATECHILDSA(t)
+		}
 	case *context.HandleIkeMsgInformationalEvt:
-		s.handleInformational(t)
+		// Check for retransmit before processing
+		if s.shouldProcessRetransmit(t.IkeMsg, t.Packet) {
+			s.handleInformational(t)
+		}
 	case *context.IkeRetransTimeoutEvt:
 		s.handleIkeRetransTimeout()
 
@@ -68,7 +80,6 @@ func (s *Server) handleEvent(ikeEvt context.IkeEvt) {
 	default:
 		logger.IKELog.Errorf("Unknown IKE event: %+v", ikeEvt.Type())
 	}
-
 }
 
 func (s *Server) handleStartIkeSaEstablishment() {
@@ -148,8 +159,10 @@ func (s *Server) handleIKESAINIT(
 		NonceResponder: remoteNonce,
 		ResponderSignedOctets: append(n3ueSelf.N3IWFUe.N3IWFIKESecurityAssociation.
 			ResponderSignedOctets, remoteNonce...),
-		UEIsBehindNAT:    ueIsBehindNAT,
-		N3IWFIsBehindNAT: n3iwfIsBehindNAT,
+		UEIsBehindNAT:     ueIsBehindNAT,
+		N3IWFIsBehindNAT:  n3iwfIsBehindNAT,
+		ReqRetransmitInfo: &context.ReqRetransmitInfo{},
+		RspRetransmitInfo: &context.RspRetransmitInfo{},
 	}
 	ConcatenatedNonce := append(ikeSecurityAssociation.NonceInitiator, ikeSecurityAssociation.NonceResponder...)
 
@@ -295,11 +308,9 @@ func (s *Server) handleIKEAUTH(
 		)
 
 		err = s.SendIkeMsgToN3iwf(
-			n3ueSelf.N3IWFUe.IKEConnection.Conn,
-			n3ueSelf.N3IWFUe.IKEConnection.UEAddr,
-			n3ueSelf.N3IWFUe.IKEConnection.N3IWFAddr,
+			n3ueSelf.N3IWFUe.IKEConnection,
 			ikeMessage,
-			ikeSecurityAssociation.IKESAKey,
+			ikeSecurityAssociation,
 		)
 		if err != nil {
 			ikeLog.Errorf("HandleIKEAUTH() IKEAUTH_Request: %v", err)
@@ -391,11 +402,9 @@ func (s *Server) handleIKEAUTH(
 		)
 
 		err = s.SendIkeMsgToN3iwf(
-			n3ueSelf.N3IWFUe.IKEConnection.Conn,
-			n3ueSelf.N3IWFUe.IKEConnection.UEAddr,
-			n3ueSelf.N3IWFUe.IKEConnection.N3IWFAddr,
+			n3ueSelf.N3IWFUe.IKEConnection,
 			ikeMessage,
-			ikeSecurityAssociation.IKESAKey,
+			ikeSecurityAssociation,
 		)
 		if err != nil {
 			ikeLog.Errorf("HandleIKEAUTH() EAP_RegistrationRequest: %v", err)
@@ -461,11 +470,9 @@ func (s *Server) handleIKEAUTH(
 		)
 
 		err = s.SendIkeMsgToN3iwf(
-			n3ueSelf.N3IWFUe.IKEConnection.Conn,
-			n3ueSelf.N3IWFUe.IKEConnection.UEAddr,
-			n3ueSelf.N3IWFUe.IKEConnection.N3IWFAddr,
+			n3ueSelf.N3IWFUe.IKEConnection,
 			ikeMessage,
-			ikeSecurityAssociation.IKESAKey,
+			ikeSecurityAssociation,
 		)
 		if err != nil {
 			ikeLog.Errorf("HandleIKEAUTH() EAP_Authentication: %v", err)
@@ -552,11 +559,9 @@ func (s *Server) handleIKEAUTH(
 		)
 
 		err = s.SendIkeMsgToN3iwf(
-			n3ueSelf.N3IWFUe.IKEConnection.Conn,
-			n3ueSelf.N3IWFUe.IKEConnection.UEAddr,
-			n3ueSelf.N3IWFUe.IKEConnection.N3IWFAddr,
+			n3ueSelf.N3IWFUe.IKEConnection,
 			ikeMessage,
-			ikeSecurityAssociation.IKESAKey,
+			ikeSecurityAssociation,
 		)
 		if err != nil {
 			ikeLog.Errorf("HandleIKEAUTH() EAP_NASSecurityComplete: %v", err)
@@ -768,11 +773,9 @@ func (s *Server) handleCREATECHILDSA(
 	)
 
 	err = s.SendIkeMsgToN3iwf(
-		n3ueSelf.N3IWFUe.IKEConnection.Conn,
-		n3ueSelf.N3IWFUe.IKEConnection.UEAddr,
-		n3ueSelf.N3IWFUe.IKEConnection.N3IWFAddr,
+		n3ueSelf.N3IWFUe.IKEConnection,
 		ikeMessage,
-		ikeSecurityAssociation.IKESAKey,
+		ikeSecurityAssociation,
 	)
 	if err != nil {
 		ikeLog.Errorf("HandleCREATECHILDSA(): %v", err)
@@ -1015,6 +1018,122 @@ func GenerateNATDetectHash(
 	return sha1HashFunction.Sum(nil), nil
 }
 
+// Retransmit message types
+const (
+	RETRANSMIT_PACKET = iota
+	NEW_PACKET
+	INVALID_PACKET
+)
+
+// processRetransmitCtx processes retransmission context with Message ID checking
+func (s *Server) processRetransmitCtx(
+	ikeSA *context.IKESecurityAssociation,
+	ikeMsg *ike_message.IKEMessage,
+	packet []byte,
+) bool {
+	if ikeSA == nil {
+		return true
+	}
+	ikeLog := logger.IKELog
+
+	// Process retransmit message
+	needMoreProcess, err := s.processRetransmitMsg(ikeSA, ikeMsg.IKEHeader, packet)
+	if err != nil {
+		ikeLog.Errorf("processRetransmitCtx(): %v", err)
+		return false
+	}
+	if !needMoreProcess {
+		return false
+	}
+
+	// Stop request message's retransmit timer send from n3iwue
+	if ikeMsg.IsResponse() && ikeSA.GetReqRetTimer() != nil {
+		ikeSA.StopReqRetTimer()
+	}
+
+	// Store request message's hash send from N3IWF
+	if !ikeMsg.IsResponse() {
+		ikeSA.StoreRspRetPrevReqHash(packet)
+	}
+	return true
+}
+
+// processRetransmitMsg determines if the message should be processed further
+func (s *Server) processRetransmitMsg(
+	ikeSA *context.IKESecurityAssociation,
+	ikeHeader *ike_message.IKEHeader, packet []byte,
+) (bool, error) {
+	if ikeSA == nil {
+		return false, errors.New("processRetransmitMsg(): ikeSA is nil")
+	}
+	ikeLog := logger.IKELog
+	ikeLog.Tracef("Process retransmit message")
+
+	if !ikeHeader.IsResponse() {
+		// For requests from N3IWF, check retransmit status
+		status, err := s.isRetransmit(ikeSA, ikeHeader, packet)
+		switch status {
+		case RETRANSMIT_PACKET:
+			ikeLog.Warnf("Received IKE request message retransmission with message ID: %d", ikeHeader.MessageID)
+			// Send cached response
+			err = SendIkeRawMsg(ikeSA.GetRspRetPrevRsp(), ikeSA.GetRspRetUdpConnInfo())
+			if err != nil {
+				return false, errors.Wrapf(err, "processRetransmitMsg()")
+			}
+			return false, nil
+		case NEW_PACKET:
+			return true, nil
+		case INVALID_PACKET:
+			return false, err
+		default:
+			return false, errors.New("processRetransmitMsg(): invalid retransmit status")
+		}
+	} else {
+		if ikeHeader.MessageID == ikeSA.InitiatorMessageID {
+			return true, nil
+		} else {
+			return false, fmt.Errorf("processRetransmitMsg(): Response expected message ID: %d but received message ID: %d",
+				ikeSA.InitiatorMessageID, ikeHeader.MessageID)
+		}
+	}
+}
+
+// isRetransmit checks if the packet is a retransmission using Message ID and SHA1 hash comparison
+func (s *Server) isRetransmit(
+	ikeSA *context.IKESecurityAssociation,
+	ikeHeader *ike_message.IKEHeader, packet []byte,
+) (int, error) {
+	if ikeSA == nil {
+		return INVALID_PACKET, errors.New("isRetransmit(): ikeSA is nil")
+	}
+
+	if ikeHeader.MessageID == ikeSA.ResponderMessageID+1 {
+		return NEW_PACKET, nil
+	}
+
+	if ikeHeader.MessageID != ikeSA.ResponderMessageID {
+		return INVALID_PACKET,
+			fmt.Errorf("isRetransmit(): Expected message ID: %d or %d but received message ID: %d",
+				ikeSA.ResponderMessageID, ikeSA.ResponderMessageID+1, ikeHeader.MessageID)
+	}
+
+	// Check if we have a cached response (indicating we processed this request before)
+	if ikeSA.GetRspRetPrevRsp() == nil {
+		logger.IKELog.Warnf("isRetransmit(): Received potential retransmit but no cached response, processing as new")
+		return NEW_PACKET, nil
+	}
+
+	// Compare SHA1 hashes to determine if it's truly a retransmit
+	hash := sha1.Sum(packet) // #nosec G401
+	prevHash := ikeSA.GetRspRetPrevReqHash()
+
+	// Compare the incoming request message with the previous request message (same msgID)
+	if bytes.Equal(hash[:], prevHash[:]) {
+		return RETRANSMIT_PACKET, nil
+	}
+	return INVALID_PACKET, errors.New("isRetransmit(): message is not retransmit")
+}
+
 // handleIkeRetransTimeoutEvt handles IKE retransmission timeout events
 func (s *Server) handleIkeRetransTimeout() {
 	ikeLog := logger.IKELog
@@ -1066,14 +1185,13 @@ func (s *Server) handleIkeRetransTimeout() {
 	})
 }
 
-// stopRetransmitTimerForResponse stops retransmit timer when receiving response messages
-func (s *Server) stopRetransmitTimerForResponse() {
+// shouldProcessRetransmit checks if message should be processed for retransmit
+func (s *Server) shouldProcessRetransmit(ikeMsg *ike_message.IKEMessage, packet []byte) bool {
 	n3ueCtx := s.Context()
-	if n3ueCtx.N3IWFUe != nil && n3ueCtx.N3IWFUe.N3IWFIKESecurityAssociation != nil {
-		ikeSA := n3ueCtx.N3IWFUe.N3IWFIKESecurityAssociation
-		if ikeSA.GetReqRetTimer() != nil {
-			logger.IKELog.Tracef("Stopping retransmit timer due to received response")
-			ikeSA.StopReqRetTimer()
-		}
+	if n3ueCtx.N3IWFUe == nil || n3ueCtx.N3IWFUe.N3IWFIKESecurityAssociation == nil {
+		return false // No IKE SA, continue normal processing
 	}
+
+	ikeSA := n3ueCtx.N3IWFUe.N3IWFIKESecurityAssociation
+	return s.processRetransmitCtx(ikeSA, ikeMsg, packet)
 }

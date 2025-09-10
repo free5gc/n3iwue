@@ -3,7 +3,6 @@ package ike
 import (
 	"encoding/binary"
 	"math/big"
-	"net"
 	"time"
 
 	"github.com/pkg/errors"
@@ -105,9 +104,11 @@ func (s *Server) SendIkeSaInit() {
 	}
 
 	// Send to n3iwf
-	err = s.SendIkeMsgToN3iwf(n3ueContext.N3IWFUe.IKEConnection.Conn,
-		n3ueContext.N3IWFUe.IKEConnection.UEAddr,
-		n3ueContext.N3IWFUe.IKEConnection.N3IWFAddr, ikeMessage, nil)
+	err = s.SendIkeMsgToN3iwf(
+		n3ueContext.N3IWFUe.IKEConnection,
+		ikeMessage,
+		nil,
+	)
 	if err != nil {
 		ikeLog.Errorf("SendIKESAINIT(): %v", err)
 		return
@@ -196,9 +197,10 @@ func (s *Server) SendIkeAuth() {
 		n3ueContext.N3IWFUe.IKEConnection = n3ueContext.IKEConnection[4500]
 	}
 
-	err := s.SendIkeMsgToN3iwf(n3ueContext.N3IWFUe.IKEConnection.Conn, n3ueContext.N3IWFUe.IKEConnection.UEAddr,
-		n3ueContext.N3IWFUe.IKEConnection.N3IWFAddr, ikeMessage,
-		n3ueContext.N3IWFUe.N3IWFIKESecurityAssociation.IKESAKey)
+	err := s.SendIkeMsgToN3iwf(
+		n3ueContext.N3IWFUe.IKEConnection,
+		ikeMessage,
+		n3ueContext.N3IWFUe.N3IWFIKESecurityAssociation)
 	if err != nil {
 		ikeLog.Errorf("SendIKEAUTH(): %d", err)
 		return
@@ -211,16 +213,31 @@ func (s *Server) SendIkeAuth() {
 	)
 }
 
+func SendIkeRawMsg(pkt []byte,
+	udpConnInfo *context.UDPSocketInfo,
+) error {
+	ikeLog := logger.IKELog
+	ikeLog.Trace("Sending...")
+	_, err := udpConnInfo.Conn.WriteToUDP(pkt, udpConnInfo.N3IWFAddr)
+	if err != nil {
+		return errors.Wrapf(err, "SendIkeRawMsg()")
+	}
+	return nil
+}
+
 func (s *Server) SendIkeMsgToN3iwf(
-	udpConn *net.UDPConn,
-	srcAddr, dstAddr *net.UDPAddr,
+	udpConnInfo *context.UDPSocketInfo,
 	message *ike_message.IKEMessage,
-	ikeSAKey *security.IKESAKey,
+	ikeSA *context.IKESecurityAssociation,
 ) error {
 	ikeLog := logger.IKELog
 	ikeLog.Trace("Send IKE message to N3IWF")
 	ikeLog.Trace("Encoding...")
 
+	var ikeSAKey *security.IKESAKey
+	if ikeSA != nil {
+		ikeSAKey = ikeSA.IKESAKey
+	}
 	pkt, err := ike.EncodeEncrypt(message, ikeSAKey, ike_message.Role_Initiator)
 	if err != nil {
 		return errors.Wrapf(err, "SendIkeMsgToN3iwf")
@@ -228,31 +245,19 @@ func (s *Server) SendIkeMsgToN3iwf(
 
 	// As specified in RFC 7296 section 3.1, the IKE message send from/to UDP port 4500
 	// should prepend a 4 bytes zero
-	if srcAddr.Port == 4500 {
+	if udpConnInfo.UEAddr.Port == 4500 {
 		prependZero := make([]byte, 4)
 		pkt = append(prependZero, pkt...)
 	}
 
-	ikeLog.Trace("Sending...")
-	n, err := udpConn.WriteToUDP(pkt, dstAddr)
+	err = SendIkeRawMsg(pkt, udpConnInfo)
 	if err != nil {
 		return errors.Wrapf(err, "SendIkeMsgToN3iwf")
 	}
 
-	if n != len(pkt) {
-		return errors.Errorf("SendIkeMsgToN3iwf Not all of the data is sent. Total length: %d. Sent: %d.",
-			len(pkt), n)
-	}
-
 	// Set retransmit context if this is a request message and we have an IKE SA
-	n3ueCtx := s.Context()
-	if n3ueCtx.N3IWFUe != nil && n3ueCtx.N3IWFUe.N3IWFIKESecurityAssociation != nil && !message.IsResponse() {
-		udpSocketInfo := &context.UDPSocketInfo{
-			Conn:      udpConn,
-			N3IWFAddr: dstAddr,
-			UEAddr:    srcAddr,
-		}
-		s.SetRetransmitCtx(n3ueCtx.N3IWFUe.N3IWFIKESecurityAssociation, pkt, udpSocketInfo, message.IsResponse())
+	if ikeSA != nil {
+		s.SetRetransmitCtx(ikeSA, pkt, udpConnInfo, message.IsResponse())
 	}
 
 	return nil
@@ -274,10 +279,10 @@ func (s *Server) SendN3iwfInformationExchange(
 		responseIKEMessage.Payloads = append(responseIKEMessage.Payloads, *payload...)
 	}
 
-	err := s.SendIkeMsgToN3iwf(n3ue.N3IWFUe.IKEConnection.Conn,
-		n3ue.N3IWFUe.IKEConnection.UEAddr,
-		n3ue.N3IWFUe.IKEConnection.N3IWFAddr, responseIKEMessage,
-		ikeSA.IKESAKey)
+	err := s.SendIkeMsgToN3iwf(
+		n3ue.N3IWFUe.IKEConnection,
+		responseIKEMessage,
+		ikeSA)
 	if err != nil {
 		ikeLog.Errorf("SendUEInformationExchange err: %+v", err)
 		return

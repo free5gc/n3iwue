@@ -178,7 +178,7 @@ type IKESecurityAssociation struct {
 	IsUseDPD      bool
 
 	// Retransmit information
-	RspRetransmitInfo *RspRetransmitInfo // store the retransmit info for responses to peer's request
+	RspRetransmitInfo *RspRetransmitInfo // store the retransmit info for N3IWF's request
 	ReqRetransmitInfo *ReqRetransmitInfo // store the retransmit info for N3UE's request
 }
 
@@ -339,6 +339,7 @@ func (ikeSA *IKESecurityAssociation) GetRspRetPrevRsp() []byte {
 	if ikeSA.RspRetransmitInfo == nil {
 		return nil
 	}
+
 	return ikeSA.RspRetransmitInfo.PrevRsp
 }
 
@@ -369,6 +370,11 @@ func (ikeSA *IKESecurityAssociation) StoreRspRetPrevReqHash(pkt []byte) {
 	}
 
 	hash := sha1.Sum(pkt)
+	if ikeSA.RspRetransmitInfo.PrevReqHash == [sha1.Size]byte{} {
+		ikeSA.RspRetransmitInfo.PrevReqHash = hash
+		return
+	}
+
 	if !bytes.Equal(ikeSA.RspRetransmitInfo.PrevReqHash[:], hash[:]) {
 		// Reset RspRetransmitInfo for the new request
 		ikeSA.RspRetransmitInfo.UdpConnInfo = nil

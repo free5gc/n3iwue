@@ -170,21 +170,17 @@ func (s *Server) receiver(localAddr *net.UDPAddr, errChan chan<- error, wg *sync
 			}
 		}
 
-		ikeMsg, err := s.checkMessage(forwardData, udpListener, localAddr, remoteAddr)
-		if err != nil {
-			ikeLog.Errorf("checkMessage failed: %+v", err)
-			continue
-		}
-
-		if ikeMsg.IsResponse() {
-			s.stopRetransmitTimerForResponse()
-		}
-
 		// Create IKE event and send to dispatcher (no fallback goroutine)
 		socketInfo := &n3iwue_context.UDPSocketInfo{
 			Conn:      udpListener,
 			N3IWFAddr: remoteAddr,
 			UEAddr:    localAddr,
+		}
+
+		ikeMsg, err := s.checkMessage(forwardData, socketInfo)
+		if err != nil {
+			ikeLog.Errorf("checkMessage failed: %+v", err)
+			continue
 		}
 
 		var evt n3iwue_context.IkeEvt
@@ -211,8 +207,7 @@ func (s *Server) receiver(localAddr *net.UDPAddr, errChan chan<- error, wg *sync
 	}
 }
 
-func (s *Server) checkMessage(msg []byte, udpConn *net.UDPConn,
-	localAddr, remoteAddr *net.UDPAddr) (
+func (s *Server) checkMessage(msg []byte, udpConnInfo *n3iwue_context.UDPSocketInfo) (
 	*ike_message.IKEMessage, error,
 ) {
 	var ikeHeader *ike_message.IKEHeader
@@ -234,7 +229,7 @@ func (s *Server) checkMessage(msg []byte, udpConn *net.UDPConn,
 			ike_message.INVALID_MAJOR_VERSION, nil, nil)
 		responseIKEMessage := ike_message.NewMessage(ikeHeader.InitiatorSPI, ikeHeader.ResponderSPI,
 			ike_message.INFORMATIONAL, true, true, ikeHeader.MessageID, *payload)
-		err = s.SendIkeMsgToN3iwf(udpConn, localAddr, remoteAddr, responseIKEMessage, nil)
+		err = s.SendIkeMsgToN3iwf(udpConnInfo, responseIKEMessage, nil)
 		if err != nil {
 			return nil, errors.Wrapf(err, "Received an IKE message with higher major version")
 		}

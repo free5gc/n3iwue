@@ -19,6 +19,9 @@ const (
 
 	// For retransmit event
 	IkeRetransTimeout
+
+	// For DPD event
+	DpdCheck
 )
 
 var ikeEvtTypeStr = []string{
@@ -33,6 +36,9 @@ var ikeEvtTypeStr = []string{
 
 	// For retransmit event
 	IkeRetransTimeout: "IkeRetransTimeout",
+
+	// For DPD event
+	DpdCheck: "DpdCheck",
 }
 
 func (e IkeEventType) String() string {
@@ -158,4 +164,16 @@ func (evt *IkeRetransTimeoutEvt) Type() IkeEventType {
 
 func NewIkeRetransTimeoutEvt() *IkeRetransTimeoutEvt {
 	return &IkeRetransTimeoutEvt{}
+}
+
+// For DPD event
+
+type DpdCheckEvt struct{}
+
+func (evt *DpdCheckEvt) Type() IkeEventType {
+	return DpdCheck
+}
+
+func NewDpdCheckEvt() *DpdCheckEvt {
+	return &DpdCheckEvt{}
 }

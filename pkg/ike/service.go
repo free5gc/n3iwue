@@ -384,8 +384,6 @@ func (s *Server) cleanupAllResources() {
 	ikeLog := logger.IKELog
 	ikeLog.Infof("Cleaning up all IKE resources")
 
-	// s.StopDPD()
-
 	n3ueCtx := s.Context()
 
 	for _, udpConn := range n3ueCtx.IKEConnection {
@@ -396,5 +394,10 @@ func (s *Server) cleanupAllResources() {
 		if err := xfrm.DeleteChildSAXfrm(childSA); err != nil {
 			ikeLog.Errorf("Close XFRM error: %v", err)
 		}
+	}
+
+	// Stop DPD Timer
+	if n3ueCtx.N3IWFUe.N3IWFIKESecurityAssociation != nil {
+		n3ueCtx.N3IWFUe.N3IWFIKESecurityAssociation.StopInboundMessageTimer()
 	}
 }

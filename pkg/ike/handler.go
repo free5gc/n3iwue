@@ -73,6 +73,8 @@ func (s *Server) handleEvent(ikeEvt context.IkeEvt) {
 		}
 	case *context.IkeRetransTimeoutEvt:
 		s.handleIkeRetransTimeout()
+	case *context.DpdCheckEvt:
+		s.handleDpdCheck()
 
 	// For Procedure event
 	case *context.StartIkeSaEstablishmentEvt:
@@ -674,6 +676,8 @@ func (s *Server) handleIKEAUTH(
 			return
 		}
 
+		s.StartInboundMessageTimer(ikeSecurityAssociation)
+
 		s.SendProcedureEvt(context.NewNwucpChildSaCreatedEvt())
 	}
 }
@@ -1036,6 +1040,14 @@ func (s *Server) processRetransmitCtx(
 	}
 	ikeLog := logger.IKELog
 
+	// Reset inbound message timer if DPD is enabled
+	if ikeSA.IsUseDPD {
+		s.ResetInboundMessageTimer(ikeSA)
+
+		// Update inbound message timestamp
+		ikeSA.UpdateInboundMessageTimestamp()
+	}
+
 	// Process retransmit message
 	needMoreProcess, err := s.processRetransmitMsg(ikeSA, ikeMsg.IKEHeader, packet)
 	if err != nil {
@@ -1194,4 +1206,83 @@ func (s *Server) shouldProcessRetransmit(ikeMsg *ike_message.IKEMessage, packet 
 
 	ikeSA := n3ueCtx.N3IWFUe.N3IWFIKESecurityAssociation
 	return s.processRetransmitCtx(ikeSA, ikeMsg, packet)
+}
+
+// StartInboundMessageTimer starts the inbound message timer for DPD
+func (s *Server) StartInboundMessageTimer(ikeSA *context.IKESecurityAssociation) {
+	ikeLog := logger.IKELog
+	if ikeSA == nil {
+		return
+	}
+
+	dpdInterval := factory.N3ueConfig.Configuration.N3UEInfo.DpdInterval
+	if dpdInterval == 0 {
+		return
+	}
+
+	ikeLog.Tracef("Starting inbound message timer for DPD with interval: %v", dpdInterval)
+
+	ikeSA.InboundMessageTimer = time.AfterFunc(dpdInterval, func() {
+		ikeLog.Tracef("Inbound message timer timeout, triggering DPD check")
+		s.SendIkeEvt(context.NewDpdCheckEvt())
+	})
+}
+
+// ResetInboundMessageTimer resets the inbound message timer
+func (s *Server) ResetInboundMessageTimer(ikeSA *context.IKESecurityAssociation) {
+	if ikeSA == nil {
+		return
+	}
+
+	// Stop existing timer
+	ikeSA.StopInboundMessageTimer()
+	// Start new timer
+	s.StartInboundMessageTimer(ikeSA)
+}
+
+// handleDpdCheck handles DPD check events
+func (s *Server) handleDpdCheck() error {
+	ikeLog := logger.IKELog
+	n3ue := s.Context()
+
+	if n3ue.N3IWFUe == nil || n3ue.N3IWFUe.N3IWFIKESecurityAssociation == nil {
+		ikeLog.Warn("No IKE SA found for DPD check")
+		return nil
+	}
+
+	ikeSA := n3ue.N3IWFUe.N3IWFIKESecurityAssociation
+	ikeLog.Tracef("Handle DPD check event")
+
+	dpdInterval := factory.N3ueConfig.Configuration.N3UEInfo.DpdInterval
+	if dpdInterval == 0 {
+		ikeLog.Tracef("DPD is disabled, skip DPD check")
+		return nil
+	}
+
+	var sendDpd bool
+
+	// Check if we need to send DPD based on inbound message timestamp
+	if ikeSA.GetReqRetTimer() == nil { // No ongoing retransmissions
+		now := time.Now()
+		lastInboundTime := time.Unix(ikeSA.InboundMessageTimestamp, 0)
+
+		ikeLog.Tracef("Last inbound message time: %v, now: %v", lastInboundTime, now)
+
+		// If no inbound message for DPD interval, send DPD
+		if now.Sub(lastInboundTime) > dpdInterval {
+			ikeLog.Tracef("Sending DPD message")
+			ikeSA.InitiatorMessageID++
+			s.SendN3iwfInformationExchange(n3ue, nil, true, false, ikeSA.InitiatorMessageID)
+			sendDpd = true
+		}
+	}
+
+	// Reset the timer for next check
+	s.ResetInboundMessageTimer(ikeSA)
+
+	if !sendDpd {
+		ikeLog.Tracef("DPD check completed, no message needed")
+	}
+
+	return nil
 }

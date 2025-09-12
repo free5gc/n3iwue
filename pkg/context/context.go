@@ -177,6 +177,10 @@ type IKESecurityAssociation struct {
 	IKESAClosedCh chan struct{}
 	IsUseDPD      bool
 
+	// Inbound message tracking for DPD
+	InboundMessageTimestamp int64
+	InboundMessageTimer     *time.Timer
+
 	// Retransmit information
 	RspRetransmitInfo *RspRetransmitInfo // store the retransmit info for N3IWF's request
 	ReqRetransmitInfo *ReqRetransmitInfo // store the retransmit info for N3UE's request
@@ -402,4 +406,18 @@ func (rt *RetransmitTimer) GetNextDelay() time.Duration {
 	// Exponential backoff: duration = expireTime * base^(current retry count)
 	exponential := math.Pow(float64(rt.Base), float64(rt.MaxRetryTimes-rt.RemainingRetries))
 	return time.Duration(exponential) * rt.ExpireTime
+}
+
+// Inbound message timer methods for DPD
+func (ikeSA *IKESecurityAssociation) UpdateInboundMessageTimestamp() {
+	if ikeSA != nil {
+		ikeSA.InboundMessageTimestamp = time.Now().Unix()
+	}
+}
+
+func (ikeSA *IKESecurityAssociation) StopInboundMessageTimer() {
+	if ikeSA != nil && ikeSA.InboundMessageTimer != nil {
+		ikeSA.InboundMessageTimer.Stop()
+		ikeSA.InboundMessageTimer = nil
+	}
 }

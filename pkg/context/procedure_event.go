@@ -8,6 +8,7 @@ const (
 	SuccessRegistration
 	PduSessionEstablished
 	DeregistrationComplete
+	RestartRegistration
 )
 
 var procedureEvtTypeStr = []string{
@@ -16,6 +17,7 @@ var procedureEvtTypeStr = []string{
 	SuccessRegistration:    "SuccessRegistration",
 	PduSessionEstablished:  "PduSessionEstablished",
 	DeregistrationComplete: "DeregistrationComplete",
+	RestartRegistration:    "RestartRegistration",
 }
 
 func (e ProcedureEventType) String() string {
@@ -77,4 +79,14 @@ func (evt *DeregistrationCompleteEvt) Type() ProcedureEventType {
 
 func NewDeregistrationCompleteEvt() *DeregistrationCompleteEvt {
 	return &DeregistrationCompleteEvt{}
+}
+
+type RestartRegistrationEvt struct{}
+
+func (evt *RestartRegistrationEvt) Type() ProcedureEventType {
+	return RestartRegistration
+}
+
+func NewRestartRegistrationEvt() *RestartRegistrationEvt {
+	return &RestartRegistrationEvt{}
 }

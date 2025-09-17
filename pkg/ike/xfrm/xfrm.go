@@ -106,6 +106,8 @@ func ApplyXFRMRule(
 		return fmt.Errorf("Set XFRM state rule failed: %+v", err)
 	}
 
+	childSecurityAssociation.XfrmStateList = append(childSecurityAssociation.XfrmStateList, *xfrmState)
+
 	// Policy
 	xfrmPolicyTemplate := netlink.XfrmPolicyTmpl{
 		Src:   xfrmState.Src,
@@ -134,6 +136,8 @@ func ApplyXFRMRule(
 	if err = netlink.XfrmPolicyAdd(xfrmPolicy); err != nil {
 		return fmt.Errorf("Set XFRM policy rule failed: %+v", err)
 	}
+
+	childSecurityAssociation.XfrmPolicyList = append(childSecurityAssociation.XfrmPolicyList, *xfrmPolicy)
 
 	// Direction: UE -> N3IWF
 	// State
@@ -165,6 +169,8 @@ func ApplyXFRMRule(
 		return fmt.Errorf("Set XFRM state rule failed: %+v", err)
 	}
 
+	childSecurityAssociation.XfrmStateList = append(childSecurityAssociation.XfrmStateList, *xfrmState)
+
 	// Policy
 	xfrmPolicyTemplate.Src, xfrmPolicyTemplate.Dst = xfrmPolicyTemplate.Dst, xfrmPolicyTemplate.Src
 	xfrmPolicyTemplate.Spi = int(childSecurityAssociation.OutboundSPI)
@@ -179,6 +185,8 @@ func ApplyXFRMRule(
 	if err = netlink.XfrmPolicyAdd(xfrmPolicy); err != nil {
 		return fmt.Errorf("Set XFRM policy rule failed: %+v", err)
 	}
+
+	childSecurityAssociation.XfrmPolicyList = append(childSecurityAssociation.XfrmPolicyList, *xfrmPolicy)
 
 	return nil
 }

@@ -88,6 +88,9 @@ func (s *Server) handleEvent(evt n3iwue_context.ProcedureEvt) {
 	case *n3iwue_context.StartRegistrationEvt:
 		// Start IKE SA Establishment
 		s.SendIkeEvt(n3iwue_context.NewStartIkeSaEstablishmentEvt())
+	case *n3iwue_context.RestartRegistrationEvt:
+		AppLog.Warnf("Restarting registration due to connection failure")
+		s.SendIkeEvt(n3iwue_context.NewStartIkeSaEstablishmentEvt())
 	case *n3iwue_context.NwucpChildSaCreatedEvt:
 		// Establish NWUCP connection with N3IWF
 		s.SendNwucpEvt(n3iwue_context.NewStartNwucpConnEvt())

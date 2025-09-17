@@ -14,6 +14,7 @@ import (
 
 	"github.com/free5gc/ike/message"
 	ike_security "github.com/free5gc/ike/security"
+	"github.com/free5gc/n3iwue/internal/logger"
 	"github.com/free5gc/n3iwue/internal/qos"
 	"github.com/free5gc/n3iwue/internal/security"
 	"github.com/free5gc/n3iwue/pkg/factory"
@@ -63,6 +64,9 @@ type N3UE struct {
 	TemporaryXfrmiName string
 	TemporaryUPIPAddr  net.IP
 	TemporaryQosInfo   *qos.PDUQoSInfo
+
+	// Continuous IKE_SA_INIT timer for reconnection
+	ContinuousIkeSaInitTimer *time.Timer
 }
 
 func N3UESelf() *N3UE {
@@ -174,8 +178,7 @@ type IKESecurityAssociation struct {
 	UEIsBehindNAT    bool
 	N3IWFIsBehindNAT bool
 
-	IKESAClosedCh chan struct{}
-	IsUseDPD      bool
+	IsUseDPD bool
 
 	// Inbound message tracking for DPD
 	InboundMessageTimestamp int64
@@ -419,5 +422,19 @@ func (ikeSA *IKESecurityAssociation) StopInboundMessageTimer() {
 	if ikeSA != nil && ikeSA.InboundMessageTimer != nil {
 		ikeSA.InboundMessageTimer.Stop()
 		ikeSA.InboundMessageTimer = nil
+	}
+}
+
+// cleanupXfrmIf removes created XFRM interfaces
+func (n3ue *N3UE) CleanupXfrmIf() {
+	appLog := logger.AppLog
+	for _, iface := range n3ue.CreatedIface {
+		if iface != nil {
+			// Ignore errors during cleanup to prevent blocking reconnection
+			err := netlink.LinkDel(*iface)
+			if err != nil {
+				appLog.Errorf("cleanupXfrmIf(): Delete XFRM interface error: %+v", err)
+			}
+		}
 	}
 }

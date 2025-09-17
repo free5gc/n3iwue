@@ -67,7 +67,7 @@ func SendPduSessionEstablishmentRequest(ue *security.RanUeContext,
 
 func (s *Server) SendDeregistration() {
 	n3ueContext := s.Context()
-	if n3ueContext.GUTI != nil {
+	if n3ueContext.GUTI != nil && n3ueContext.N3IWFRanUe.TCPConnection != nil {
 		mobileIdentity5GS := nasType.MobileIdentity5GS{
 			Len:    n3ueContext.GUTI.Len,
 			Buffer: n3ueContext.GUTI.Octet[:],

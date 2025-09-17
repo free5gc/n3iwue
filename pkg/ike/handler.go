@@ -25,6 +25,7 @@ import (
 	"github.com/free5gc/n3iwue/internal/packet/nasPacket"
 	"github.com/free5gc/n3iwue/internal/packet/ngapPacket"
 	"github.com/free5gc/n3iwue/internal/qos"
+	"github.com/free5gc/n3iwue/internal/util"
 	context "github.com/free5gc/n3iwue/pkg/context"
 	"github.com/free5gc/n3iwue/pkg/factory"
 	"github.com/free5gc/n3iwue/pkg/ike/xfrm"
@@ -85,10 +86,32 @@ func (s *Server) handleEvent(ikeEvt context.IkeEvt) {
 }
 
 func (s *Server) handleStartIkeSaEstablishment() {
-	likeLog := logger.IKELog
-	likeLog.Infoln("Handle Start IKE SA Establishment")
+	ikeLog := logger.IKELog
+	ikeLog.Infoln("Handle Start IKE SA Establishment")
+	n3ueContext := s.Context()
 
+	// Stop any existing continuous timer
+	s.stopContinuousIkeSaInit()
+
+	// Send initial IKE_SA_INIT
 	s.SendIkeSaInit()
+
+	// Set up continuous timer for IKE_SA_INIT retransmission
+	retransCfg := factory.N3ueInfo.IkeRetransmit
+	interval := time.Duration(retransCfg.Base) * retransCfg.ExpireTime
+
+	n3ueContext.ContinuousIkeSaInitTimer = time.AfterFunc(interval, func() {
+		s.SendIkeEvt(context.NewStartIkeSaEstablishmentEvt())
+	})
+}
+
+// stopContinuousIkeSaInit stops the continuous IKE_SA_INIT timer
+func (s *Server) stopContinuousIkeSaInit() {
+	n3ueContext := s.Context()
+	if n3ueContext.ContinuousIkeSaInitTimer != nil {
+		n3ueContext.ContinuousIkeSaInitTimer.Stop()
+		n3ueContext.ContinuousIkeSaInitTimer = nil
+	}
 }
 
 func (s *Server) handleIKESAINIT(
@@ -177,6 +200,10 @@ func (s *Server) handleIKESAINIT(
 
 	ikeLog.Tracef("%v", ikeSecurityAssociation.String())
 	n3ueSelf.N3IWFUe.N3IWFIKESecurityAssociation = ikeSecurityAssociation
+
+	// Stop continuous IKE_SA_INIT timer as IKE SA is now established
+	s.stopContinuousIkeSaInit()
+
 	s.SendIkeAuth()
 }
 
@@ -1172,9 +1199,9 @@ func (s *Server) handleIkeRetransTimeout() {
 
 	// Check if we have retries left
 	if timer.GetRetryCount() == 0 {
-		ikeLog.Warnf("Maximum retransmission attempts reached, cleaning up")
-		ikeSA.StopReqRetTimer()
-		// In a full implementation, this might trigger IKE SA cleanup or failure handling
+		ikeLog.Warnf("Maximum retransmission attempts reached, triggering reconnection")
+
+		s.handleIkeConnectionFailed()
 		return
 	}
 
@@ -1184,7 +1211,7 @@ func (s *Server) handleIkeRetransTimeout() {
 		timer.GetRetryCount(), timer.MaxRetryTimes)
 
 	// Send the retransmitted packet
-	_, err := udpConnInfo.Conn.WriteToUDP(prevReq, udpConnInfo.N3IWFAddr)
+	err := SendIkeRawMsg(prevReq, udpConnInfo)
 	if err != nil {
 		ikeLog.Errorf("Failed to retransmit IKE packet: %v", err)
 		ikeSA.StopReqRetTimer()
@@ -1241,13 +1268,13 @@ func (s *Server) ResetInboundMessageTimer(ikeSA *context.IKESecurityAssociation)
 }
 
 // handleDpdCheck handles DPD check events
-func (s *Server) handleDpdCheck() error {
+func (s *Server) handleDpdCheck() {
 	ikeLog := logger.IKELog
 	n3ue := s.Context()
 
 	if n3ue.N3IWFUe == nil || n3ue.N3IWFUe.N3IWFIKESecurityAssociation == nil {
 		ikeLog.Warn("No IKE SA found for DPD check")
-		return nil
+		return
 	}
 
 	ikeSA := n3ue.N3IWFUe.N3IWFIKESecurityAssociation
@@ -1256,7 +1283,7 @@ func (s *Server) handleDpdCheck() error {
 	dpdInterval := factory.N3ueConfig.Configuration.N3UEInfo.DpdInterval
 	if dpdInterval == 0 {
 		ikeLog.Tracef("DPD is disabled, skip DPD check")
-		return nil
+		return
 	}
 
 	var sendDpd bool
@@ -1283,6 +1310,35 @@ func (s *Server) handleDpdCheck() error {
 	if !sendDpd {
 		ikeLog.Tracef("DPD check completed, no message needed")
 	}
+}
 
-	return nil
+// handleIkeConnectionFailed handles IKE connection failure events for reconnection
+func (s *Server) handleIkeConnectionFailed() {
+	ikeLog := logger.IKELog
+	ikeLog.Warnf("Handle IKE connection failed - initiating reconnection")
+
+	n3ue := s.Context()
+	ikeSA := n3ue.N3IWFUe.N3IWFIKESecurityAssociation
+
+	ikeSA.StopReqRetTimer()
+	ikeSA.StopInboundMessageTimer()
+
+	if err := s.CleanChildSAXfrm(); err != nil {
+		ikeLog.Errorf("CleanChildSAXfrm error: %v", err)
+	}
+
+	// Cleanup XFRM interfaces
+	n3ue.CleanupXfrmIf()
+
+	// Reset all IKE context to prepare for reconnection
+	ikeConn := n3ue.IKEConnection
+	if err := factory.Initialize(); err != nil {
+		ikeLog.Errorf("handleIkeConnectionFailed(): %v", err)
+	}
+
+	util.InitN3UEContext()
+	n3ue.IKEConnection = ikeConn
+
+	// Trigger procedure restart via RestartRegistration event
+	s.SendProcedureEvt(context.NewRestartRegistrationEvt())
 }

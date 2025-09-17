@@ -390,14 +390,24 @@ func (s *Server) cleanupAllResources() {
 		util.SafeCloseConn(udpConn.Conn, ikeLog, "cleanupAllResources")
 	}
 
-	for _, childSA := range n3ueCtx.N3IWFUe.N3IWFChildSecurityAssociation {
-		if err := xfrm.DeleteChildSAXfrm(childSA); err != nil {
-			ikeLog.Errorf("Close XFRM error: %v", err)
-		}
+	if err := s.CleanChildSAXfrm(); err != nil {
+		ikeLog.Errorf("CleanChildSAXfrm error: %v", err)
 	}
 
+	ikeSA := n3ueCtx.N3IWFUe.N3IWFIKESecurityAssociation
 	// Stop DPD Timer
-	if n3ueCtx.N3IWFUe.N3IWFIKESecurityAssociation != nil {
-		n3ueCtx.N3IWFUe.N3IWFIKESecurityAssociation.StopInboundMessageTimer()
+	ikeSA.StopInboundMessageTimer()
+
+	// Stop Retransmit Timer
+	ikeSA.StopReqRetTimer()
+}
+
+func (s *Server) CleanChildSAXfrm() error {
+	childSAs := s.Context().N3IWFUe.N3IWFChildSecurityAssociation
+	for _, childSA := range childSAs {
+		if err := xfrm.DeleteChildSAXfrm(childSA); err != nil {
+			return errors.Wrapf(err, "CleanChildSAXfrm")
+		}
 	}
+	return nil
 }

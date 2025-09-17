@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"os/signal"
 	"runtime/debug"
@@ -20,16 +19,6 @@ import (
 	"github.com/free5gc/n3iwue/pkg/ike"
 	"github.com/free5gc/n3iwue/pkg/procedure"
 )
-
-func Initialize() error {
-	if err := factory.InitConfigFactory("./config/n3ue.yaml"); err != nil {
-		return fmt.Errorf("factory.InitConfigFactory: %+v", err)
-	}
-	if _, err := factory.N3ueConfig.Validate(); err != nil {
-		return fmt.Errorf("Validate config fail: %+v", err)
-	}
-	return nil
-}
 
 var n3iwueApp *N3iwueApp
 

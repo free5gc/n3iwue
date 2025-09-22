@@ -67,6 +67,8 @@ type N3UE struct {
 
 	// Continuous IKE_SA_INIT timer for reconnection
 	ContinuousIkeSaInitTimer *time.Timer
+
+	ReRegistrationRequired bool
 }
 
 func N3UESelf() *N3UE {
@@ -116,6 +118,7 @@ type N3IWFRanUe struct {
 
 	/* NAS TCP Connection */
 	TCPConnection net.Conn
+	TcpConnStopCh chan struct{}
 
 	/* Others */
 	Guami                            *ngapType.GUAMI

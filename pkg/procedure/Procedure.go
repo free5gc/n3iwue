@@ -32,6 +32,7 @@ type N3iwue interface {
 	SendIkeEvt(evt n3iwue_context.IkeEvt)
 	SendNwucpEvt(evt n3iwue_context.NwucpEvt)
 	SignalDeregistrationComplete()
+	TriggerGracefulShutdown(reason string)
 }
 
 type Server struct {
@@ -98,9 +99,7 @@ func (s *Server) handleEvent(evt n3iwue_context.ProcedureEvt) {
 		// Start PduSession Establishment
 		s.SendNwucpEvt(n3iwue_context.NewStartPduSessionEstablishmentEvt())
 	case *n3iwue_context.DeregistrationCompleteEvt:
-		// Deregistration completed, signal main app for graceful shutdown
-		AppLog.Info("Deregistration completed, signaling shutdown")
-		s.SignalDeregistrationComplete()
+		s.handleDeregistrationCompleteEvt()
 	case *n3iwue_context.PduSessionEstablishedEvt:
 		// Test Connectivity
 		AppLog.Info("PduSession Created")
@@ -185,4 +184,19 @@ func (s *Server) Stop() {
 	s.serverCancel()
 	s.serverWg.Wait()
 	AppLog.Info("Procedure server shutdown complete")
+}
+
+func (s *Server) handleDeregistrationCompleteEvt() {
+	AppLog.Info("Deregistration complete event received")
+
+	n3ueSelf := s.Context()
+	if n3ueSelf.ReRegistrationRequired {
+		AppLog.Info("Re-registration required, triggering reconnection")
+		// Trigger IKE reconnection
+		s.SendIkeEvt(n3iwue_context.NewIkeReConnectEvt())
+	} else {
+		AppLog.Info("Re-registration not required, shutting down application")
+		// Trigger application graceful shutdown
+		s.TriggerGracefulShutdown("deregistration complete without re-registration")
+	}
 }

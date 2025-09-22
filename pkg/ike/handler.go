@@ -80,6 +80,8 @@ func (s *Server) handleEvent(ikeEvt context.IkeEvt) {
 	// For Procedure event
 	case *context.StartIkeSaEstablishmentEvt:
 		s.handleStartIkeSaEstablishment()
+	case *context.IkeReConnectEvt:
+		s.handleIkeReconnect()
 	default:
 		logger.IKELog.Errorf("Unknown IKE event: %+v", ikeEvt.Type())
 	}
@@ -934,9 +936,6 @@ func (s *Server) handleInformational(
 	ikeLog := logger.IKELog
 	ikeLog.Infoln("Handle Informational")
 
-	// udpConnInfo := evt.UdpConnInfo
-	// ueAddr := udpConnInfo.UEAddr
-	// n3iwfAddr := udpConnInfo.N3IWFAddr
 	message := evt.IkeMsg
 
 	n3ueSelf := s.Context()
@@ -1201,7 +1200,8 @@ func (s *Server) handleIkeRetransTimeout() {
 	if timer.GetRetryCount() == 0 {
 		ikeLog.Warnf("Maximum retransmission attempts reached, triggering reconnection")
 
-		s.handleIkeConnectionFailed()
+		// Trigger IKE reconnection
+		s.handleIkeReconnect()
 		return
 	}
 
@@ -1312,8 +1312,8 @@ func (s *Server) handleDpdCheck() {
 	}
 }
 
-// handleIkeConnectionFailed handles IKE connection failure events for reconnection
-func (s *Server) handleIkeConnectionFailed() {
+// handleIkeReconnect handles IKE connection failure events for reconnection
+func (s *Server) handleIkeReconnect() {
 	ikeLog := logger.IKELog
 	ikeLog.Warnf("Handle IKE connection failed - initiating reconnection")
 

@@ -17,6 +17,11 @@ import (
 
 func SendNasMsg(ue *security.RanUeContext, conn net.Conn, msg []byte) {
 	nwucpLog := logger.NWuCPLog
+	if conn == nil {
+		nwucpLog.Errorf("TCP connection with N3IWF is nil")
+		return
+	}
+
 	pdu, err := ngapPacket.EncodeNasPduInEnvelopeWithSecurity(
 		ue,
 		msg,
@@ -67,7 +72,7 @@ func SendPduSessionEstablishmentRequest(ue *security.RanUeContext,
 
 func (s *Server) SendDeregistration() {
 	n3ueContext := s.Context()
-	if n3ueContext.GUTI != nil && n3ueContext.N3IWFRanUe.TCPConnection != nil {
+	if n3ueContext.GUTI != nil {
 		mobileIdentity5GS := nasType.MobileIdentity5GS{
 			Len:    n3ueContext.GUTI.Len,
 			Buffer: n3ueContext.GUTI.Octet[:],

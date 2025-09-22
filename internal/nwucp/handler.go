@@ -26,6 +26,8 @@ func (s *Server) handleEvent(evt context.NwucpEvt) {
 		s.handleStartPduSessionEstablishmentEvt()
 	case *context.SendDeregistrationEvt:
 		s.handleSendDeregistrationEvt()
+	case *context.HandleDeregistrationReqUeTerminatedEvt:
+		s.handleDeregistrationReqUeTerminated(t)
 	}
 }
 
@@ -150,4 +152,30 @@ func (s *Server) handleSendDeregistrationEvt() {
 	nwucpLog.Tracef("Get Send Deregistration")
 
 	s.SendDeregistration()
+}
+
+func (s *Server) handleDeregistrationReqUeTerminated(evt *context.HandleDeregistrationReqUeTerminatedEvt) {
+	nwucpLog := logger.NWuCPLog
+	nwucpLog.Tracef("Get Deregistration Request UE Terminated")
+
+	n3ueSelf := s.Context()
+	nasMsg := evt.NasMsg
+	deregistrationRequest := nasMsg.GmmMessage.DeregistrationRequestUETerminatedDeregistration
+	if deregistrationRequest == nil {
+		nwucpLog.Errorf("Deregistration Request UE Terminated is nil")
+		return
+	}
+
+	deregType := deregistrationRequest.SpareHalfOctetAndDeregistrationType
+	deregistrationAccept := nasPacket.GetDeregistrationAccept()
+	if deregType.GetReRegistrationRequired() == 1 {
+		nwucpLog.Infof("handleDeregistrationReqUeTerminated(): Re-registration required")
+		n3ueSelf.ReRegistrationRequired = true
+	}
+
+	// Send Deregistration Accept
+	SendNasMsg(n3ueSelf.RanUeContext, n3ueSelf.N3IWFRanUe.TCPConnection, deregistrationAccept)
+
+	// Stop TCP connection
+	s.StopTCPConnection()
 }

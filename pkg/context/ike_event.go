@@ -22,6 +22,9 @@ const (
 
 	// For DPD event
 	DpdCheck
+
+	// For re-connection event
+	IkeReConnect
 )
 
 var ikeEvtTypeStr = []string{
@@ -39,6 +42,9 @@ var ikeEvtTypeStr = []string{
 
 	// For DPD event
 	DpdCheck: "DpdCheck",
+
+	// For re-connection event
+	IkeReConnect: "IkeReConnect",
 }
 
 func (e IkeEventType) String() string {
@@ -176,4 +182,16 @@ func (evt *DpdCheckEvt) Type() IkeEventType {
 
 func NewDpdCheckEvt() *DpdCheckEvt {
 	return &DpdCheckEvt{}
+}
+
+// For connection failure event
+
+type IkeReConnectEvt struct{}
+
+func (evt *IkeReConnectEvt) Type() IkeEventType {
+	return IkeReConnect
+}
+
+func NewIkeReConnectEvt() *IkeReConnectEvt {
+	return &IkeReConnectEvt{}
 }

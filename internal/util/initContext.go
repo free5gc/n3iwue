@@ -21,7 +21,10 @@ func InitN3UEContext() {
 
 	n3ueContext.N3ueInfo = factory.N3ueConfig.Configuration.N3UEInfo
 	n3ueContext.N3iwfInfo = factory.N3ueConfig.Configuration.N3IWFInfo
+
 	n3ueContext.N3IWFRanUe = new(context.N3IWFRanUe)
+	n3ueContext.N3IWFRanUe.TcpConnStopCh = make(chan struct{})
+
 	n3ueContext.N3IWFUe = new(context.N3IWFIkeUe)
 	n3ueContext.N3IWFUe.N3IWFChildSecurityAssociation = make(map[uint32]*context.ChildSecurityAssociation)
 	n3ueContext.N3IWFUe.TemporaryExchangeMsgIDChildSAMapping = make(map[uint32]*context.ChildSecurityAssociation)
@@ -51,6 +54,8 @@ func InitN3UEContext() {
 		Buffer: suci,
 	}
 	n3ueContext.IKEConnection = make(map[int]*context.UDPSocketInfo)
+
+	n3ueContext.ReRegistrationRequired = false
 }
 
 func getAuthSubscription() (authSubs models.AuthenticationSubscription) {

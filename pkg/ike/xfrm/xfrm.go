@@ -1,10 +1,10 @@
 package xfrm
 
 import (
-	"errors"
 	"fmt"
 	"net"
 
+	"github.com/pkg/errors"
 	"github.com/vishvananda/netlink"
 
 	ike_message "github.com/free5gc/ike/message"
@@ -106,6 +106,8 @@ func ApplyXFRMRule(
 		return fmt.Errorf("Set XFRM state rule failed: %+v", err)
 	}
 
+	childSecurityAssociation.XfrmStateList = append(childSecurityAssociation.XfrmStateList, *xfrmState)
+
 	// Policy
 	xfrmPolicyTemplate := netlink.XfrmPolicyTmpl{
 		Src:   xfrmState.Src,
@@ -134,6 +136,8 @@ func ApplyXFRMRule(
 	if err = netlink.XfrmPolicyAdd(xfrmPolicy); err != nil {
 		return fmt.Errorf("Set XFRM policy rule failed: %+v", err)
 	}
+
+	childSecurityAssociation.XfrmPolicyList = append(childSecurityAssociation.XfrmPolicyList, *xfrmPolicy)
 
 	// Direction: UE -> N3IWF
 	// State
@@ -165,6 +169,8 @@ func ApplyXFRMRule(
 		return fmt.Errorf("Set XFRM state rule failed: %+v", err)
 	}
 
+	childSecurityAssociation.XfrmStateList = append(childSecurityAssociation.XfrmStateList, *xfrmState)
+
 	// Policy
 	xfrmPolicyTemplate.Src, xfrmPolicyTemplate.Dst = xfrmPolicyTemplate.Dst, xfrmPolicyTemplate.Src
 	xfrmPolicyTemplate.Spi = int(childSecurityAssociation.OutboundSPI)
@@ -179,6 +185,8 @@ func ApplyXFRMRule(
 	if err = netlink.XfrmPolicyAdd(xfrmPolicy); err != nil {
 		return fmt.Errorf("Set XFRM policy rule failed: %+v", err)
 	}
+
+	childSecurityAssociation.XfrmPolicyList = append(childSecurityAssociation.XfrmPolicyList, *xfrmPolicy)
 
 	return nil
 }
@@ -233,4 +241,24 @@ func SetupIPsecXfrmi(
 	n3ueSelf.CreatedIface = append(n3ueSelf.CreatedIface, &xfrmi)
 
 	return xfrmi, nil
+}
+
+func DeleteChildSAXfrm(childSA *context.ChildSecurityAssociation) error {
+	for idx := range childSA.XfrmStateList {
+		xfrmState := childSA.XfrmStateList[idx]
+		if err := netlink.XfrmStateDel(&xfrmState); err != nil {
+			return errors.Wrapf(err, "DeleteChildSaXfrm(): delete xfrm state")
+		}
+	}
+
+	for idx := range childSA.XfrmPolicyList {
+		xfrmPolicy := childSA.XfrmPolicyList[idx]
+		if err := netlink.XfrmPolicyDel(&xfrmPolicy); err != nil {
+			return errors.Wrapf(err, "DeleteChildSaXfrm(): delete xfrm policy")
+		}
+	}
+
+	childSA.XfrmStateList = nil
+	childSA.XfrmPolicyList = nil
+	return nil
 }

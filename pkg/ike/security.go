@@ -1,4 +1,4 @@
-package handler
+package ike
 
 import (
 	"encoding/binary"
@@ -9,6 +9,7 @@ import (
 	"github.com/free5gc/ike/message"
 	ike_message "github.com/free5gc/ike/message"
 	ike_security "github.com/free5gc/ike/security"
+	"github.com/free5gc/n3iwue/internal/logger"
 	"github.com/free5gc/n3iwue/pkg/context"
 	"github.com/free5gc/n3iwue/pkg/factory"
 )
@@ -20,8 +21,10 @@ import (
 // For dealing with EAP-5G start, return EAP-5G response including
 // "AN-Parameters and NASPDU of Registration Request"
 
-func BuildEAP5GANParameters() []byte {
+func (s *Server) BuildEAP5GANParameters() []byte {
+	ikeLog := logger.IKELog
 	var anParameters []byte
+	n3ueSelf := s.Context()
 
 	// [TS 24.502] 9.3.2.2.2.3
 	// AN-parameter value field in GUAMI, PLMN ID and NSSAI is coded as value part

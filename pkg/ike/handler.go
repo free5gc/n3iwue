@@ -1,4 +1,4 @@
-package handler
+package ike
 
 import (
 	"bytes"
@@ -7,11 +7,14 @@ import (
 	"fmt"
 	"math/big"
 	"net"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 
+	"github.com/free5gc/ike/eap"
+	ike_eap "github.com/free5gc/ike/eap"
 	ike_message "github.com/free5gc/ike/message"
 	ike_security "github.com/free5gc/ike/security"
 	"github.com/free5gc/ike/security/dh"
@@ -22,6 +25,7 @@ import (
 	"github.com/free5gc/n3iwue/internal/packet/nasPacket"
 	"github.com/free5gc/n3iwue/internal/packet/ngapPacket"
 	"github.com/free5gc/n3iwue/internal/qos"
+	"github.com/free5gc/n3iwue/internal/util"
 	context "github.com/free5gc/n3iwue/pkg/context"
 	"github.com/free5gc/n3iwue/pkg/factory"
 	"github.com/free5gc/n3iwue/pkg/ike/xfrm"
@@ -31,14 +35,9 @@ import (
 	"github.com/free5gc/util/ueauth"
 )
 
-var (
-	n3ueSelf = context.N3UESelf()
-	ikeLog   *logrus.Entry
-	nasLog   *logrus.Entry
-)
+var nasLog *logrus.Entry
 
 func init() {
-	ikeLog = logger.IKELog
 	nasLog = logger.NASLog
 }
 
@@ -51,13 +50,83 @@ const (
 	IKEAUTH_Authentication
 )
 
-func HandleIKESAINIT(
-	udpConn *net.UDPConn,
-	ueAddr, n3iwfAddr *net.UDPAddr,
-	message *ike_message.IKEMessage,
+func (s *Server) handleEvent(ikeEvt context.IkeEvt) {
+	switch t := ikeEvt.(type) {
+	case *context.HandleIkeMsgSaInitEvt:
+		// Check for retransmit before processing
+		if s.shouldProcessRetransmit(t.IkeMsg, t.Packet) {
+			s.handleIKESAINIT(t)
+		}
+	case *context.HandleIkeMsgAuthEvt:
+		// Check for retransmit before processing
+		if s.shouldProcessRetransmit(t.IkeMsg, t.Packet) {
+			s.handleIKEAUTH(t)
+		}
+	case *context.HandleIkeMsgCreateChildSaEvt:
+		// Check for retransmit before processing
+		if s.shouldProcessRetransmit(t.IkeMsg, t.Packet) {
+			s.handleCREATECHILDSA(t)
+		}
+	case *context.HandleIkeMsgInformationalEvt:
+		// Check for retransmit before processing
+		if s.shouldProcessRetransmit(t.IkeMsg, t.Packet) {
+			s.handleInformational(t)
+		}
+	case *context.IkeRetransTimeoutEvt:
+		s.handleIkeRetransTimeout()
+	case *context.DpdCheckEvt:
+		s.handleDpdCheck()
+
+	// For Procedure event
+	case *context.StartIkeSaEstablishmentEvt:
+		s.handleStartIkeSaEstablishment()
+	default:
+		logger.IKELog.Errorf("Unknown IKE event: %+v", ikeEvt.Type())
+	}
+}
+
+func (s *Server) handleStartIkeSaEstablishment() {
+	ikeLog := logger.IKELog
+	ikeLog.Infoln("Handle Start IKE SA Establishment")
+	n3ueContext := s.Context()
+
+	// Stop any existing continuous timer
+	s.stopContinuousIkeSaInit()
+
+	// Send initial IKE_SA_INIT
+	s.SendIkeSaInit()
+
+	// Set up continuous timer for IKE_SA_INIT retransmission
+	retransCfg := factory.N3ueInfo.IkeRetransmit
+	interval := time.Duration(retransCfg.Base) * retransCfg.ExpireTime
+
+	n3ueContext.ContinuousIkeSaInitTimer = time.AfterFunc(interval, func() {
+		s.SendIkeEvt(context.NewStartIkeSaEstablishmentEvt())
+	})
+}
+
+// stopContinuousIkeSaInit stops the continuous IKE_SA_INIT timer
+func (s *Server) stopContinuousIkeSaInit() {
+	n3ueContext := s.Context()
+	if n3ueContext.ContinuousIkeSaInitTimer != nil {
+		n3ueContext.ContinuousIkeSaInitTimer.Stop()
+		n3ueContext.ContinuousIkeSaInitTimer = nil
+	}
+}
+
+func (s *Server) handleIKESAINIT(
+	evt *context.HandleIkeMsgSaInitEvt,
 ) {
+	ikeLog := logger.IKELog
 	ikeLog.Infoln("Handle IKESA INIT")
 
+	udpConnInfo := evt.UdpConnInfo
+	ueAddr := udpConnInfo.UEAddr
+	n3iwfAddr := udpConnInfo.N3IWFAddr
+	message := evt.IkeMsg
+	// packet := evt.Packet
+
+	n3ueSelf := s.Context()
 	var sharedKeyExchangeData []byte
 	var remoteNonce []byte
 	var notifications []*ike_message.Notification
@@ -115,8 +184,10 @@ func HandleIKESAINIT(
 		NonceResponder: remoteNonce,
 		ResponderSignedOctets: append(n3ueSelf.N3IWFUe.N3IWFIKESecurityAssociation.
 			ResponderSignedOctets, remoteNonce...),
-		UEIsBehindNAT:    ueIsBehindNAT,
-		N3IWFIsBehindNAT: n3iwfIsBehindNAT,
+		UEIsBehindNAT:     ueIsBehindNAT,
+		N3IWFIsBehindNAT:  n3iwfIsBehindNAT,
+		ReqRetransmitInfo: &context.ReqRetransmitInfo{},
+		RspRetransmitInfo: &context.RspRetransmitInfo{},
 	}
 	ConcatenatedNonce := append(ikeSecurityAssociation.NonceInitiator, ikeSecurityAssociation.NonceResponder...)
 
@@ -129,23 +200,32 @@ func HandleIKESAINIT(
 
 	ikeLog.Tracef("%v", ikeSecurityAssociation.String())
 	n3ueSelf.N3IWFUe.N3IWFIKESecurityAssociation = ikeSecurityAssociation
-	n3ueSelf.CurrentState <- uint8(context.Registration_IKEAUTH)
+
+	// Stop continuous IKE_SA_INIT timer as IKE SA is now established
+	s.stopContinuousIkeSaInit()
+
+	s.SendIkeAuth()
 }
 
-func HandleIKEAUTH(
-	udpConn *net.UDPConn,
-	ueAddr, n3iwfAddr *net.UDPAddr,
-	message *ike_message.IKEMessage,
+func (s *Server) handleIKEAUTH(
+	evt *context.HandleIkeMsgAuthEvt,
 ) {
+	ikeLog := logger.IKELog
 	ikeLog.Infoln("Handle IKE AUTH")
 
+	udpConnInfo := evt.UdpConnInfo
+	ueAddr := udpConnInfo.UEAddr
+	n3iwfAddr := udpConnInfo.N3IWFAddr
+	message := evt.IkeMsg
+
+	n3ueSelf := s.Context()
 	ikeSecurityAssociation := n3ueSelf.N3IWFUe.N3IWFIKESecurityAssociation
 	ue := n3ueSelf.RanUeContext
 
 	var ikePayload ike_message.IKEPayloadContainer
 
 	// var eapIdentifier uint8
-	var eapReq *ike_message.EAP
+	var eapReq *ike_message.PayloadEap
 
 	// AUTH, SAr2, TSi, Tsr, N(NAS_IP_ADDRESS), N(NAS_TCP_PORT)
 	var responseSecurityAssociation *ike_message.SecurityAssociation
@@ -201,7 +281,7 @@ func HandleIKEAUTH(
 			}
 		case ike_message.TypeEAP:
 			ikeLog.Info("Get EAP")
-			eapReq = ikePayload.(*ike_message.EAP)
+			eapReq = ikePayload.(*ike_message.PayloadEap)
 		}
 	}
 
@@ -217,7 +297,7 @@ func HandleIKEAUTH(
 		eapVendorTypeData[0] = ike_message.EAP5GType5GNAS
 
 		// AN Parameters
-		anParameters := BuildEAP5GANParameters()
+		anParameters := s.BuildEAP5GANParameters()
 		anParametersLength := make([]byte, 2)
 		binary.BigEndian.PutUint16(anParametersLength, uint16(len(anParameters)))
 		eapVendorTypeData = append(eapVendorTypeData, anParametersLength...)
@@ -240,10 +320,10 @@ func HandleIKEAUTH(
 		eapVendorTypeData = append(eapVendorTypeData, nasLength...)
 		eapVendorTypeData = append(eapVendorTypeData, registrationRequest...)
 
-		eap := ikePayload.BuildEAP(ike_message.EAPCodeResponse, eapIdentifier)
-		eap.EAPTypeData.BuildEAPExpanded(
-			ike_message.VendorID3GPP,
-			ike_message.VendorTypeEAP5G,
+		eap := ikePayload.BuildEAP(ike_eap.EapCodeResponse, eapIdentifier)
+		eap.EapTypeData = ike_message.BuildEapExpanded(
+			ike_eap.VendorId3GPP,
+			ike_eap.VendorTypeEAP5G,
 			eapVendorTypeData,
 		)
 
@@ -256,12 +336,10 @@ func HandleIKEAUTH(
 			ikePayload,
 		)
 
-		err = SendIKEMessageToN3IWF(
-			n3ueSelf.N3IWFUe.IKEConnection.Conn,
-			n3ueSelf.N3IWFUe.IKEConnection.UEAddr,
-			n3ueSelf.N3IWFUe.IKEConnection.N3IWFAddr,
+		err = s.SendIkeMsgToN3iwf(
+			n3ueSelf.N3IWFUe.IKEConnection,
 			ikeMessage,
-			ikeSecurityAssociation.IKESAKey,
+			ikeSecurityAssociation,
 		)
 		if err != nil {
 			ikeLog.Errorf("HandleIKEAUTH() IKEAUTH_Request: %v", err)
@@ -277,8 +355,8 @@ func HandleIKEAUTH(
 		ikeSecurityAssociation.State++
 
 	case EAP_RegistrationRequest:
-		var eapExpanded *ike_message.EAPExpanded
-		eapExpanded, ok = eapReq.EAPTypeData[0].(*ike_message.EAPExpanded)
+		var eapExpanded *ike_eap.EapExpanded
+		eapExpanded, ok = eapReq.EapTypeData.(*ike_eap.EapExpanded)
 		if !ok {
 			ikeLog.Error("The EAP data is not an EAP expended.")
 			return
@@ -336,10 +414,10 @@ func HandleIKEAUTH(
 		eapVendorTypeData = append(eapVendorTypeData, nasLength...)
 		eapVendorTypeData = append(eapVendorTypeData, pdu...)
 
-		eap := ikePayload.BuildEAP(ike_message.EAPCodeResponse, eapReq.Identifier)
-		eap.EAPTypeData.BuildEAPExpanded(
-			ike_message.VendorID3GPP,
-			ike_message.VendorTypeEAP5G,
+		eap := ikePayload.BuildEAP(ike_eap.EapCodeResponse, eapReq.Identifier)
+		eap.EapTypeData = ike_message.BuildEapExpanded(
+			ike_eap.VendorId3GPP,
+			ike_eap.VendorTypeEAP5G,
 			eapVendorTypeData,
 		)
 
@@ -352,12 +430,10 @@ func HandleIKEAUTH(
 			ikePayload,
 		)
 
-		err = SendIKEMessageToN3IWF(
-			n3ueSelf.N3IWFUe.IKEConnection.Conn,
-			n3ueSelf.N3IWFUe.IKEConnection.UEAddr,
-			n3ueSelf.N3IWFUe.IKEConnection.N3IWFAddr,
+		err = s.SendIkeMsgToN3iwf(
+			n3ueSelf.N3IWFUe.IKEConnection,
 			ikeMessage,
-			ikeSecurityAssociation.IKESAKey,
+			ikeSecurityAssociation,
 		)
 		if err != nil {
 			ikeLog.Errorf("HandleIKEAUTH() EAP_RegistrationRequest: %v", err)
@@ -366,7 +442,7 @@ func HandleIKEAUTH(
 
 		ikeSecurityAssociation.State++
 	case EAP_Authentication:
-		_, ok = eapReq.EAPTypeData[0].(*ike_message.EAPExpanded)
+		_, ok = eapReq.EapTypeData.(*ike_eap.EapExpanded)
 		if !ok {
 			ikeLog.Error("The EAP data is not an EAP expended.")
 			return
@@ -406,10 +482,10 @@ func HandleIKEAUTH(
 		eapVendorTypeData = append(eapVendorTypeData, nasLength...)
 		eapVendorTypeData = append(eapVendorTypeData, pdu...)
 
-		eap := ikePayload.BuildEAP(ike_message.EAPCodeResponse, eapReq.Identifier)
-		eap.EAPTypeData.BuildEAPExpanded(
-			ike_message.VendorID3GPP,
-			ike_message.VendorTypeEAP5G,
+		eap := ikePayload.BuildEAP(ike_eap.EapCodeResponse, eapReq.Identifier)
+		eap.EapTypeData = ike_message.BuildEapExpanded(
+			ike_eap.VendorId3GPP,
+			ike_eap.VendorTypeEAP5G,
 			eapVendorTypeData,
 		)
 
@@ -422,12 +498,10 @@ func HandleIKEAUTH(
 			ikePayload,
 		)
 
-		err = SendIKEMessageToN3IWF(
-			n3ueSelf.N3IWFUe.IKEConnection.Conn,
-			n3ueSelf.N3IWFUe.IKEConnection.UEAddr,
-			n3ueSelf.N3IWFUe.IKEConnection.N3IWFAddr,
+		err = s.SendIkeMsgToN3iwf(
+			n3ueSelf.N3IWFUe.IKEConnection,
 			ikeMessage,
-			ikeSecurityAssociation.IKESAKey,
+			ikeSecurityAssociation,
 		)
 		if err != nil {
 			ikeLog.Errorf("HandleIKEAUTH() EAP_Authentication: %v", err)
@@ -436,7 +510,7 @@ func HandleIKEAUTH(
 
 		ikeSecurityAssociation.State++
 	case EAP_NASSecurityComplete:
-		if eapReq.Code != ike_message.EAPCodeSuccess {
+		if eapReq.Code != eap.EapCodeSuccess {
 			ikeLog.Error("Not Success")
 			return
 		}
@@ -513,12 +587,10 @@ func HandleIKEAUTH(
 			ikePayload,
 		)
 
-		err = SendIKEMessageToN3IWF(
-			n3ueSelf.N3IWFUe.IKEConnection.Conn,
-			n3ueSelf.N3IWFUe.IKEConnection.UEAddr,
-			n3ueSelf.N3IWFUe.IKEConnection.N3IWFAddr,
+		err = s.SendIkeMsgToN3iwf(
+			n3ueSelf.N3IWFUe.IKEConnection,
 			ikeMessage,
-			ikeSecurityAssociation.IKESAKey,
+			ikeSecurityAssociation,
 		)
 		if err != nil {
 			ikeLog.Errorf("HandleIKEAUTH() EAP_NASSecurityComplete: %v", err)
@@ -631,18 +703,26 @@ func HandleIKEAUTH(
 			return
 		}
 
-		n3ueSelf.CurrentState <- uint8(context.Registration_CreateNWUCP)
+		s.StartInboundMessageTimer(ikeSecurityAssociation)
+
+		s.SendProcedureEvt(context.NewNwucpChildSaCreatedEvt())
 	}
 }
 
-func HandleCREATECHILDSA(
-	udpConn *net.UDPConn,
-	ueAddr, n3iwfAddr *net.UDPAddr,
-	message *ike_message.IKEMessage,
+func (s *Server) handleCREATECHILDSA(
+	evt *context.HandleIkeMsgCreateChildSaEvt,
 ) {
+	ikeLog := logger.IKELog
 	ikeLog.Tracef("Handle CreateChildSA")
 
+	udpConnInfo := evt.UdpConnInfo
+	ueAddr := udpConnInfo.UEAddr
+	n3iwfAddr := udpConnInfo.N3IWFAddr
+	message := evt.IkeMsg
+
+	n3ueSelf := s.Context()
 	ikeSecurityAssociation := n3ueSelf.N3IWFUe.N3IWFIKESecurityAssociation
+	ikeSecurityAssociation.ResponderMessageID = message.MessageID
 
 	var ikePayload ike_message.IKEPayloadContainer
 
@@ -719,16 +799,14 @@ func HandleCREATECHILDSA(
 		ikeSecurityAssociation.RemoteSPI,
 		ike_message.CREATE_CHILD_SA,
 		true, true,
-		ikeSecurityAssociation.InitiatorMessageID,
+		ikeSecurityAssociation.ResponderMessageID,
 		ikePayload,
 	)
 
-	err = SendIKEMessageToN3IWF(
-		n3ueSelf.N3IWFUe.IKEConnection.Conn,
-		n3ueSelf.N3IWFUe.IKEConnection.UEAddr,
-		n3ueSelf.N3IWFUe.IKEConnection.N3IWFAddr,
+	err = s.SendIkeMsgToN3iwf(
+		n3ueSelf.N3IWFUe.IKEConnection,
 		ikeMessage,
-		ikeSecurityAssociation.IKESAKey,
+		ikeSecurityAssociation,
 	)
 	if err != nil {
 		ikeLog.Errorf("HandleCREATECHILDSA(): %v", err)
@@ -850,20 +928,41 @@ func HandleCREATECHILDSA(
 	ikeLog.Infof("Setup XFRM interface %s successfully", n3ueSelf.TemporaryXfrmiName)
 }
 
-func HandleInformational(
-	udpConn *net.UDPConn,
-	ueAddr, n3iwfAddr *net.UDPAddr,
-	message *ike_message.IKEMessage,
+func (s *Server) handleInformational(
+	evt *context.HandleIkeMsgInformationalEvt,
 ) {
+	ikeLog := logger.IKELog
 	ikeLog.Infoln("Handle Informational")
 
-	n3ueSelf = context.N3UESelf()
+	// udpConnInfo := evt.UdpConnInfo
+	// ueAddr := udpConnInfo.UEAddr
+	// n3iwfAddr := udpConnInfo.N3IWFAddr
+	message := evt.IkeMsg
 
-	if len(message.Payloads) == 0 && !message.IsResponse() {
-		ikeLog.Tracef("Receive DPD message")
-		SendN3IWFInformationExchange(n3ueSelf, nil, true, true, message.MessageID)
-	} else {
-		ikeLog.Warnf("Unimplemented informational message")
+	n3ueSelf := s.Context()
+	ikeSA := n3ueSelf.N3IWFUe.N3IWFIKESecurityAssociation
+
+	var deletePayload *ike_message.Delete
+
+	for _, ikePayload := range message.Payloads {
+		switch ikePayload.Type() {
+		case ike_message.TypeD:
+			deletePayload = ikePayload.(*ike_message.Delete)
+		default:
+			ikeLog.Warnf("Unhandled Ike payload type[%s] informational message", ikePayload.Type().String())
+		}
+	}
+
+	if !message.IsResponse() {
+		ikeSA.ResponderMessageID = message.MessageID
+		if deletePayload != nil {
+			// TODO: Handle delete payload
+			ikeLog.Infof("Received delete payload, sending deregistration complete event")
+			s.SendProcedureEvt(context.NewDeregistrationCompleteEvt())
+		} else {
+			ikeLog.Tracef("Receive DPD message request")
+		}
+		s.SendN3iwfInformationExchange(n3ueSelf, nil, true, true, message.MessageID)
 	}
 }
 
@@ -872,6 +971,7 @@ func HandleNATDetect(
 	notifications []*ike_message.Notification,
 	ueAddr, n3iwfAddr *net.UDPAddr,
 ) (bool, bool, error) {
+	ikeLog := logger.IKELog
 	ueBehindNAT := false
 	n3iwfBehindNAT := false
 
@@ -947,4 +1047,298 @@ func GenerateNATDetectHash(
 		return nil, errors.Wrapf(err, "generate NATD Hash")
 	}
 	return sha1HashFunction.Sum(nil), nil
+}
+
+// Retransmit message types
+const (
+	RETRANSMIT_PACKET = iota
+	NEW_PACKET
+	INVALID_PACKET
+)
+
+// processRetransmitCtx processes retransmission context with Message ID checking
+func (s *Server) processRetransmitCtx(
+	ikeSA *context.IKESecurityAssociation,
+	ikeMsg *ike_message.IKEMessage,
+	packet []byte,
+) bool {
+	if ikeSA == nil {
+		return true
+	}
+	ikeLog := logger.IKELog
+
+	// Reset inbound message timer if DPD is enabled
+	if ikeSA.IsUseDPD {
+		s.ResetInboundMessageTimer(ikeSA)
+
+		// Update inbound message timestamp
+		ikeSA.UpdateInboundMessageTimestamp()
+	}
+
+	// Process retransmit message
+	needMoreProcess, err := s.processRetransmitMsg(ikeSA, ikeMsg.IKEHeader, packet)
+	if err != nil {
+		ikeLog.Errorf("processRetransmitCtx(): %v", err)
+		return false
+	}
+	if !needMoreProcess {
+		return false
+	}
+
+	// Stop request message's retransmit timer send from n3iwue
+	if ikeMsg.IsResponse() && ikeSA.GetReqRetTimer() != nil {
+		ikeSA.StopReqRetTimer()
+	}
+
+	// Store request message's hash send from N3IWF
+	if !ikeMsg.IsResponse() {
+		ikeSA.StoreRspRetPrevReqHash(packet)
+	}
+	return true
+}
+
+// processRetransmitMsg determines if the message should be processed further
+func (s *Server) processRetransmitMsg(
+	ikeSA *context.IKESecurityAssociation,
+	ikeHeader *ike_message.IKEHeader, packet []byte,
+) (bool, error) {
+	if ikeSA == nil {
+		return false, errors.New("processRetransmitMsg(): ikeSA is nil")
+	}
+	ikeLog := logger.IKELog
+	ikeLog.Tracef("Process retransmit message")
+
+	if !ikeHeader.IsResponse() {
+		// For requests from N3IWF, check retransmit status
+		status, err := s.isRetransmit(ikeSA, ikeHeader, packet)
+		switch status {
+		case RETRANSMIT_PACKET:
+			ikeLog.Warnf("Received IKE request message retransmission with message ID: %d", ikeHeader.MessageID)
+			// Send cached response
+			err = SendIkeRawMsg(ikeSA.GetRspRetPrevRsp(), ikeSA.GetRspRetUdpConnInfo())
+			if err != nil {
+				return false, errors.Wrapf(err, "processRetransmitMsg()")
+			}
+			return false, nil
+		case NEW_PACKET:
+			return true, nil
+		case INVALID_PACKET:
+			return false, err
+		default:
+			return false, errors.New("processRetransmitMsg(): invalid retransmit status")
+		}
+	} else {
+		if ikeHeader.MessageID == ikeSA.InitiatorMessageID {
+			return true, nil
+		} else {
+			return false, fmt.Errorf("processRetransmitMsg(): Response expected message ID: %d but received message ID: %d",
+				ikeSA.InitiatorMessageID, ikeHeader.MessageID)
+		}
+	}
+}
+
+// isRetransmit checks if the packet is a retransmission using Message ID and SHA1 hash comparison
+func (s *Server) isRetransmit(
+	ikeSA *context.IKESecurityAssociation,
+	ikeHeader *ike_message.IKEHeader, packet []byte,
+) (int, error) {
+	if ikeSA == nil {
+		return INVALID_PACKET, errors.New("isRetransmit(): ikeSA is nil")
+	}
+
+	if ikeHeader.MessageID == ikeSA.ResponderMessageID+1 {
+		return NEW_PACKET, nil
+	}
+
+	if ikeHeader.MessageID != ikeSA.ResponderMessageID {
+		return INVALID_PACKET,
+			fmt.Errorf("isRetransmit(): Expected message ID: %d or %d but received message ID: %d",
+				ikeSA.ResponderMessageID, ikeSA.ResponderMessageID+1, ikeHeader.MessageID)
+	}
+
+	// Check if we have a cached response (indicating we processed this request before)
+	if ikeSA.GetRspRetPrevRsp() == nil {
+		logger.IKELog.Warnf("isRetransmit(): Received potential retransmit but no cached response, processing as new")
+		return NEW_PACKET, nil
+	}
+
+	// Compare SHA1 hashes to determine if it's truly a retransmit
+	hash := sha1.Sum(packet) // #nosec G401
+	prevHash := ikeSA.GetRspRetPrevReqHash()
+
+	// Compare the incoming request message with the previous request message (same msgID)
+	if bytes.Equal(hash[:], prevHash[:]) {
+		return RETRANSMIT_PACKET, nil
+	}
+	return INVALID_PACKET, errors.New("isRetransmit(): message is not retransmit")
+}
+
+// handleIkeRetransTimeoutEvt handles IKE retransmission timeout events
+func (s *Server) handleIkeRetransTimeout() {
+	ikeLog := logger.IKELog
+	ikeLog.Tracef("Handle IKE retransmission timeout")
+
+	n3ueCtx := s.Context()
+	if n3ueCtx.N3IWFUe == nil || n3ueCtx.N3IWFUe.N3IWFIKESecurityAssociation == nil {
+		ikeLog.Warn("No IKE SA found for retransmission")
+		return
+	}
+
+	ikeSA := n3ueCtx.N3IWFUe.N3IWFIKESecurityAssociation
+
+	// Get retransmit information
+	timer := ikeSA.GetReqRetTimer()
+	prevReq := ikeSA.GetReqRetPrevReq()
+	udpConnInfo := ikeSA.GetReqRetUdpConnInfo()
+
+	if timer == nil || prevReq == nil || udpConnInfo == nil {
+		ikeLog.Warn("Incomplete retransmit information, cannot retransmit")
+		ikeSA.StopReqRetTimer()
+		return
+	}
+
+	// Check if we have retries left
+	if timer.GetRetryCount() == 0 {
+		ikeLog.Warnf("Maximum retransmission attempts reached, triggering reconnection")
+
+		s.handleIkeConnectionFailed()
+		return
+	}
+
+	// Increment retry count and retransmit the packet
+	timer.DecrementRetryCount()
+	ikeLog.Tracef("Retransmitting IKE packet (retry %d/%d)",
+		timer.GetRetryCount(), timer.MaxRetryTimes)
+
+	// Send the retransmitted packet
+	err := SendIkeRawMsg(prevReq, udpConnInfo)
+	if err != nil {
+		ikeLog.Errorf("Failed to retransmit IKE packet: %v", err)
+		ikeSA.StopReqRetTimer()
+		return
+	}
+
+	delayTime := timer.GetNextDelay()
+	timer.Timer = time.AfterFunc(delayTime, func() {
+		s.SendIkeEvt(context.NewIkeRetransTimeoutEvt())
+	})
+}
+
+// shouldProcessRetransmit checks if message should be processed for retransmit
+func (s *Server) shouldProcessRetransmit(ikeMsg *ike_message.IKEMessage, packet []byte) bool {
+	n3ueCtx := s.Context()
+	if n3ueCtx.N3IWFUe == nil || n3ueCtx.N3IWFUe.N3IWFIKESecurityAssociation == nil {
+		return false // No IKE SA, continue normal processing
+	}
+
+	ikeSA := n3ueCtx.N3IWFUe.N3IWFIKESecurityAssociation
+	return s.processRetransmitCtx(ikeSA, ikeMsg, packet)
+}
+
+// StartInboundMessageTimer starts the inbound message timer for DPD
+func (s *Server) StartInboundMessageTimer(ikeSA *context.IKESecurityAssociation) {
+	ikeLog := logger.IKELog
+	if ikeSA == nil {
+		return
+	}
+
+	dpdInterval := factory.N3ueConfig.Configuration.N3UEInfo.DpdInterval
+	if dpdInterval == 0 {
+		return
+	}
+
+	ikeLog.Tracef("Starting inbound message timer for DPD with interval: %v", dpdInterval)
+
+	ikeSA.InboundMessageTimer = time.AfterFunc(dpdInterval, func() {
+		ikeLog.Tracef("Inbound message timer timeout, triggering DPD check")
+		s.SendIkeEvt(context.NewDpdCheckEvt())
+	})
+}
+
+// ResetInboundMessageTimer resets the inbound message timer
+func (s *Server) ResetInboundMessageTimer(ikeSA *context.IKESecurityAssociation) {
+	if ikeSA == nil {
+		return
+	}
+
+	// Stop existing timer
+	ikeSA.StopInboundMessageTimer()
+	// Start new timer
+	s.StartInboundMessageTimer(ikeSA)
+}
+
+// handleDpdCheck handles DPD check events
+func (s *Server) handleDpdCheck() {
+	ikeLog := logger.IKELog
+	n3ue := s.Context()
+
+	if n3ue.N3IWFUe == nil || n3ue.N3IWFUe.N3IWFIKESecurityAssociation == nil {
+		ikeLog.Warn("No IKE SA found for DPD check")
+		return
+	}
+
+	ikeSA := n3ue.N3IWFUe.N3IWFIKESecurityAssociation
+	ikeLog.Tracef("Handle DPD check event")
+
+	dpdInterval := factory.N3ueConfig.Configuration.N3UEInfo.DpdInterval
+	if dpdInterval == 0 {
+		ikeLog.Tracef("DPD is disabled, skip DPD check")
+		return
+	}
+
+	var sendDpd bool
+
+	// Check if we need to send DPD based on inbound message timestamp
+	if ikeSA.GetReqRetTimer() == nil { // No ongoing retransmissions
+		now := time.Now()
+		lastInboundTime := time.Unix(ikeSA.InboundMessageTimestamp, 0)
+
+		ikeLog.Tracef("Last inbound message time: %v, now: %v", lastInboundTime, now)
+
+		// If no inbound message for DPD interval, send DPD
+		if now.Sub(lastInboundTime) > dpdInterval {
+			ikeLog.Tracef("Sending DPD message")
+			ikeSA.InitiatorMessageID++
+			s.SendN3iwfInformationExchange(n3ue, nil, true, false, ikeSA.InitiatorMessageID)
+			sendDpd = true
+		}
+	}
+
+	// Reset the timer for next check
+	s.ResetInboundMessageTimer(ikeSA)
+
+	if !sendDpd {
+		ikeLog.Tracef("DPD check completed, no message needed")
+	}
+}
+
+// handleIkeConnectionFailed handles IKE connection failure events for reconnection
+func (s *Server) handleIkeConnectionFailed() {
+	ikeLog := logger.IKELog
+	ikeLog.Warnf("Handle IKE connection failed - initiating reconnection")
+
+	n3ue := s.Context()
+	ikeSA := n3ue.N3IWFUe.N3IWFIKESecurityAssociation
+
+	ikeSA.StopReqRetTimer()
+	ikeSA.StopInboundMessageTimer()
+
+	if err := s.CleanChildSAXfrm(); err != nil {
+		ikeLog.Errorf("CleanChildSAXfrm error: %v", err)
+	}
+
+	// Cleanup XFRM interfaces
+	n3ue.CleanupXfrmIf()
+
+	// Reset all IKE context to prepare for reconnection
+	ikeConn := n3ue.IKEConnection
+	if err := factory.Initialize(); err != nil {
+		ikeLog.Errorf("handleIkeConnectionFailed(): %v", err)
+	}
+
+	util.InitN3UEContext()
+	n3ue.IKEConnection = ikeConn
+
+	// Trigger procedure restart via RestartRegistration event
+	s.SendProcedureEvt(context.NewRestartRegistrationEvt())
 }

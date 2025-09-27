@@ -18,6 +18,16 @@ var (
 )
 var filePath string
 
+func Initialize() error {
+	if err := InitConfigFactory("./config/n3ue.yaml"); err != nil {
+		return fmt.Errorf("factory.InitConfigFactory: %+v", err)
+	}
+	if _, err := N3ueConfig.Validate(); err != nil {
+		return fmt.Errorf("Validate config fail: %+v", err)
+	}
+	return nil
+}
+
 func InitConfigFactory(f string) error {
 	filePath = f
 	if content, err := os.ReadFile(filePath); err != nil {

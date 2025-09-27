@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/bits"
 	"reflect"
+	"time"
 
 	"github.com/asaskevich/govalidator"
 	"github.com/davecgh/go-spew/spew"
@@ -119,19 +120,21 @@ type N3IWFInfo struct {
 }
 
 type N3UEInfo struct {
-	IMSI           IMSI         `yaml:"IMSI" valid:"required"`
-	AMFID          string       `yaml:"AMFID" valid:"hexadecimal,required"`
-	IPSecIfaceName string       `yaml:"IPSecIfaceName" valid:"stringlength(1|10),required"`
-	IPSecIfaceAddr string       `yaml:"IPSecIfaceAddr" valid:"host,required"`
-	DnIPAddr       string       `yaml:"DnIPAddr" valid:"host,optional"`
-	XfrmiId        uint32       `yaml:"XfrmiId" valid:"numeric,required"`
-	XfrmiName      string       `yaml:"XfrmiName" valid:"stringlength(1|10),required"`
-	GreIfaceName   string       `yaml:"GreIfaceName" valid:"stringlength(1|10),required"`
-	IkeSaSPI       uint64       `yaml:"IkeSaSPI" valid:"hexadecimal,required"`
-	IPSecSaCpSPI   uint32       `yaml:"IPSecSA3gppControlPlaneSPI" valid:"hexadecimal,required"`
-	SmPolicy       []PolicyItem `yaml:"SmPolicy" valid:"required"`
-	Security       Security     `yaml:"Security" valid:"required"`
-	VisitedPlmn    *PLMN        `yaml:"VisitedPLMN" valid:"optional"`
+	IMSI           IMSI                   `yaml:"IMSI" valid:"required"`
+	AMFID          string                 `yaml:"AMFID" valid:"hexadecimal,required"`
+	IPSecIfaceName string                 `yaml:"IPSecIfaceName" valid:"stringlength(1|10),required"`
+	IPSecIfaceAddr string                 `yaml:"IPSecIfaceAddr" valid:"host,required"`
+	DnIPAddr       string                 `yaml:"DnIPAddr" valid:"host,optional"`
+	XfrmiId        uint32                 `yaml:"XfrmiId" valid:"numeric,required"`
+	XfrmiName      string                 `yaml:"XfrmiName" valid:"stringlength(1|10),required"`
+	GreIfaceName   string                 `yaml:"GreIfaceName" valid:"stringlength(1|10),required"`
+	IkeSaSPI       uint64                 `yaml:"IkeSaSPI" valid:"hexadecimal,required"`
+	IPSecSaCpSPI   uint32                 `yaml:"IPSecSA3gppControlPlaneSPI" valid:"hexadecimal,required"`
+	SmPolicy       []PolicyItem           `yaml:"SmPolicy" valid:"required"`
+	Security       Security               `yaml:"Security" valid:"required"`
+	VisitedPlmn    *PLMN                  `yaml:"VisitedPLMN" valid:"optional"`
+	DpdInterval    time.Duration          `yaml:"DpdInterval" valid:"optional"`
+	IkeRetransmit  *ExponentialTimerValue `yaml:"IkeRetransmit" valid:"required"`
 }
 
 func (i *N3UEInfo) validate() (bool, error) {
@@ -309,4 +312,11 @@ func (c *Config) GetVersion() string {
 		return c.Info.Version
 	}
 	return ""
+}
+
+type ExponentialTimerValue struct {
+	Enable        bool          `yaml:"enable"        valid:"optional"`
+	ExpireTime    time.Duration `yaml:"expireTime"    valid:"required"`
+	MaxRetryTimes int           `yaml:"maxRetryTimes" valid:"optional"`
+	Base          int           `yaml:"base"          valid:"required"`
 }

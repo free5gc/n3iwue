@@ -8,7 +8,7 @@ require (
 	github.com/calee0219/fatal v0.0.1
 	github.com/davecgh/go-spew v1.1.1
 	github.com/free5gc/aper v1.0.5
-	github.com/free5gc/ike v1.1.1-0.20241014015325-083f89768f43
+	github.com/free5gc/ike v1.1.1-0.20250711154609-b717ecc8531c
 	github.com/free5gc/nas v1.0.7
 	github.com/free5gc/ngap v1.0.8
 	github.com/free5gc/openapi v1.0.8

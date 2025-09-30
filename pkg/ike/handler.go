@@ -1200,8 +1200,14 @@ func (s *Server) handleIkeRetransTimeout() {
 	if timer.GetRetryCount() == 0 {
 		ikeLog.Warnf("Maximum retransmission attempts reached, triggering reconnection")
 
-		// Trigger IKE reconnection
-		s.handleIkeReconnect()
+		if s.Config().Configuration.N3UEInfo.ReRegistration {
+			// Trigger IKE reconnection if re-registration is allowed
+			s.handleIkeReconnect()
+		} else {
+			// Trigger graceful shutdown if re-registration is not allowed
+			s.TriggerGracefulShutdown("maximum IKE retransmission attempts reached")
+		}
+
 		return
 	}
 

@@ -169,7 +169,7 @@ func (s *Server) handleDeregistrationReqUeTerminated(evt *context.HandleDeregist
 	deregType := deregistrationRequest.SpareHalfOctetAndDeregistrationType
 	deregistrationAccept := nasPacket.GetDeregistrationAccept()
 	if deregType.GetReRegistrationRequired() == 1 {
-		nwucpLog.Infof("handleDeregistrationReqUeTerminated(): Re-registration required")
+		nwucpLog.Infof("handleDeregistrationReqUeTerminated(): Core network triggered re-registration required")
 		n3ueSelf.ReRegistrationRequired = true
 	}
 

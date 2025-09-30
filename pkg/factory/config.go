@@ -135,6 +135,7 @@ type N3UEInfo struct {
 	VisitedPlmn    *PLMN                  `yaml:"VisitedPLMN" valid:"optional"`
 	DpdInterval    time.Duration          `yaml:"DpdInterval" valid:"optional"`
 	IkeRetransmit  *ExponentialTimerValue `yaml:"IkeRetransmit" valid:"required"`
+	ReRegistration bool                   `yaml:"ReRegistration" valid:"optional"`
 }
 
 func (i *N3UEInfo) validate() (bool, error) {

@@ -318,6 +318,7 @@ func (a *N3iwueApp) TriggerGracefulShutdown(reason string) {
 	// Start shutdown process in a separate goroutine
 	go func() {
 		mainLog.Info("Starting internal shutdown process")
+		RemoveIPsecInterfaces()
 		a.terminateProcedure()
 		mainLog.Info("Internal shutdown completed")
 	}()
@@ -332,4 +333,5 @@ func RemoveIPsecInterfaces() {
 			logger.AppLog.Infof("Delete interface: %s", (*iface).Attrs().Name)
 		}
 	}
+	n3ueSelf.CreatedIface = nil
 }

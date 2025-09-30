@@ -400,7 +400,7 @@ func (s *Server) cleanupAllResources() {
 	ikeSA.StopInboundMessageTimer()
 
 	// Stop Retransmit Timer
-	ikeSA.StopReqRetTimer()
+	ikeSA.StopReqRetransTimer()
 }
 
 func (s *Server) CleanChildSAXfrm() error {

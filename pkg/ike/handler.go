@@ -1085,13 +1085,13 @@ func (s *Server) processRetransmitCtx(
 	}
 
 	// Stop request message's retransmit timer send from n3iwue
-	if ikeMsg.IsResponse() && ikeSA.GetReqRetTimer() != nil {
-		ikeSA.StopReqRetTimer()
+	if ikeMsg.IsResponse() && ikeSA.GetReqRetransTimer() != nil {
+		ikeSA.StopReqRetransTimer()
 	}
 
 	// Store request message's hash send from N3IWF
 	if !ikeMsg.IsResponse() {
-		ikeSA.StoreRspRetPrevReqHash(packet)
+		ikeSA.StoreRspRetransPrevReqHash(packet)
 	}
 	return true
 }
@@ -1114,7 +1114,7 @@ func (s *Server) processRetransmitMsg(
 		case RETRANSMIT_PACKET:
 			ikeLog.Warnf("Received IKE request message retransmission with message ID: %d", ikeHeader.MessageID)
 			// Send cached response
-			err = SendIkeRawMsg(ikeSA.GetRspRetPrevRsp(), ikeSA.GetRspRetUdpConnInfo())
+			err = SendIkeRawMsg(ikeSA.GetRspRetransPrevRsp(), ikeSA.GetRspRetransUdpConnInfo())
 			if err != nil {
 				return false, errors.Wrapf(err, "processRetransmitMsg()")
 			}
@@ -1156,14 +1156,14 @@ func (s *Server) isRetransmit(
 	}
 
 	// Check if we have a cached response (indicating we processed this request before)
-	if ikeSA.GetRspRetPrevRsp() == nil {
+	if ikeSA.GetRspRetransPrevRsp() == nil {
 		logger.IKELog.Warnf("isRetransmit(): Received potential retransmit but no cached response, processing as new")
 		return NEW_PACKET, nil
 	}
 
 	// Compare SHA1 hashes to determine if it's truly a retransmit
 	hash := sha1.Sum(packet) // #nosec G401
-	prevHash := ikeSA.GetRspRetPrevReqHash()
+	prevHash := ikeSA.GetRspRetransPrevReqHash()
 
 	// Compare the incoming request message with the previous request message (same msgID)
 	if bytes.Equal(hash[:], prevHash[:]) {
@@ -1186,13 +1186,13 @@ func (s *Server) handleIkeRetransTimeout() {
 	ikeSA := n3ueCtx.N3IWFUe.N3IWFIKESecurityAssociation
 
 	// Get retransmit information
-	timer := ikeSA.GetReqRetTimer()
-	prevReq := ikeSA.GetReqRetPrevReq()
-	udpConnInfo := ikeSA.GetReqRetUdpConnInfo()
+	timer := ikeSA.GetReqRetransTimer()
+	prevReq := ikeSA.GetReqRetransPrevReq()
+	udpConnInfo := ikeSA.GetReqRetransUdpConnInfo()
 
 	if timer == nil || prevReq == nil || udpConnInfo == nil {
 		ikeLog.Warn("Incomplete retransmit information, cannot retransmit")
-		ikeSA.StopReqRetTimer()
+		ikeSA.StopReqRetransTimer()
 		return
 	}
 
@@ -1220,7 +1220,7 @@ func (s *Server) handleIkeRetransTimeout() {
 	err := SendIkeRawMsg(prevReq, udpConnInfo)
 	if err != nil {
 		ikeLog.Errorf("Failed to retransmit IKE packet: %v", err)
-		ikeSA.StopReqRetTimer()
+		ikeSA.StopReqRetransTimer()
 		return
 	}
 
@@ -1295,7 +1295,7 @@ func (s *Server) handleDpdCheck() {
 	var sendDpd bool
 
 	// Check if we need to send DPD based on inbound message timestamp
-	if ikeSA.GetReqRetTimer() == nil { // No ongoing retransmissions
+	if ikeSA.GetReqRetransTimer() == nil { // No ongoing retransmissions
 		now := time.Now()
 		lastInboundTime := time.Unix(ikeSA.InboundMessageTimestamp, 0)
 
@@ -1326,7 +1326,7 @@ func (s *Server) handleIkeReconnect() {
 	n3ue := s.Context()
 	ikeSA := n3ue.N3IWFUe.N3IWFIKESecurityAssociation
 
-	ikeSA.StopReqRetTimer()
+	ikeSA.StopReqRetransTimer()
 	ikeSA.StopInboundMessageTimer()
 
 	if err := s.CleanChildSAXfrm(); err != nil {

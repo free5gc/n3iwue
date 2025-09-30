@@ -304,12 +304,12 @@ func (s *Server) SetRetransmitCtx(
 
 	if isResponse {
 		// Store response retransmit info
-		ikeSA.StoreRspRetPrevRsp(pkt)
-		ikeSA.StoreRspRetUdpConnInfo(udpConnInfo)
+		ikeSA.StoreRspRetransPrevRsp(pkt)
+		ikeSA.StoreRspRetransUdpConnInfo(udpConnInfo)
 	} else {
 		// Store request retransmit info and set timer for requests only
-		ikeSA.StoreReqRetPrevReq(pkt)
-		ikeSA.StoreReqRetUdpConnInfo(udpConnInfo)
+		ikeSA.StoreReqRetransPrevReq(pkt)
+		ikeSA.StoreReqRetransUdpConnInfo(udpConnInfo)
 		s.SetRetransmitTimer(ikeSA)
 	}
 }
@@ -334,5 +334,5 @@ func (s *Server) SetRetransmitTimer(ikeSA *context.IKESecurityAssociation) {
 		s.SendIkeEvt(context.NewIkeRetransTimeoutEvt())
 	})
 
-	ikeSA.StoreReqRetTimer(timer)
+	ikeSA.StoreReqRetransTimer(timer)
 }

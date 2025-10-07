@@ -205,6 +205,6 @@ func (s *Server) StopTCPConnection() {
 	case n3ueSelf.N3IWFRanUe.TcpConnStopCh <- struct{}{}:
 		// TCP connection stopped successfully
 	default:
-		logger.NWuCPLog.Warnf("TCP connection stop channel is already closed")
+		logger.NWuCPLog.Warnf("TCP connection stop channel is not ready (may be full or closed), dropping stop signal")
 	}
 }

@@ -38,7 +38,7 @@ configuration:
             base: 1
             expireTime: 2s
             maxRetryTimes: 3
-        ReRegistration: false # Re-registration after connection is failed between N3UE and N3IWF
+        AutoReRegistration: false # Re-registration after connection is failed between N3UE and N3IWF
         Security:
             K: b73a90cbcf3afb622dba83c58a8415df
             RAND: b120f1c1a0102a2f507dd543de68281f

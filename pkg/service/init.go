@@ -141,7 +141,7 @@ func Start() {
 
 	defer func() {
 		select {
-		case signalChannel <- nil: // Send signal in case of returning with error
+		case signalChannel <- os.Interrupt: // Send signal in case of returning with error
 		default:
 		}
 	}()
@@ -333,5 +333,5 @@ func RemoveIPsecInterfaces() {
 			logger.AppLog.Infof("Delete interface: %s", (*iface).Attrs().Name)
 		}
 	}
-	n3ueSelf.CreatedIface = nil
+	n3ueSelf.CreatedIface = n3ueSelf.CreatedIface[:0]
 }

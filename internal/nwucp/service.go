@@ -57,6 +57,9 @@ func (s *Server) Run(wg *sync.WaitGroup) {
 
 func (s *Server) serveConn(errChan chan<- error) {
 	nwucpLog := logger.NWuCPLog
+	n3ueSelf := s.Context()
+	ranUe := n3ueSelf.N3IWFRanUe
+
 	defer func() {
 		if p := recover(); p != nil {
 			// Print stack for panic to log. Fatalf() will let program exit.
@@ -64,9 +67,8 @@ func (s *Server) serveConn(errChan chan<- error) {
 		}
 		nwucpLog.Infof("NWUCP Connection closed")
 		s.serverWg.Done()
+		close(ranUe.TcpConnStopCh)
 	}()
-
-	n3ueSelf := s.Context()
 
 	localTCPAddr := &net.TCPAddr{
 		IP: n3ueSelf.UEInnerAddr.IP,
@@ -76,7 +78,7 @@ func (s *Server) serveConn(errChan chan<- error) {
 		errChan <- util.LogAndWrapError(err, nwucpLog, "TCP dial to N3IWF failed")
 		return
 	}
-	n3ueSelf.N3IWFRanUe.TCPConnection = tcpConnWithN3IWF
+	ranUe.TCPConnection = tcpConnWithN3IWF
 
 	close(errChan)
 
@@ -89,6 +91,9 @@ func (s *Server) serveConn(errChan chan<- error) {
 	nasEnv := make([]byte, 65535)
 	for {
 		select {
+		case <-ranUe.TcpConnStopCh:
+			nwucpLog.Infof("NWUCP Connection closed by TCP connection stop channel")
+			return
 		case <-s.serverCtx.Done():
 			nwucpLog.Infof("NWUCP Connection closed by server context")
 			return
@@ -125,6 +130,8 @@ func (s *Server) serveConn(errChan chan<- error) {
 			evt = n3iwue_context.NewHandleRegistrationAcceptEvt(nasMsg)
 		case nas.MsgTypeDLNASTransport:
 			evt = n3iwue_context.NewHandleDLNASTransportEvt(nasMsg)
+		case nas.MsgTypeDeregistrationRequestUETerminatedDeregistration:
+			evt = n3iwue_context.NewHandleDeregistrationReqUeTerminatedEvt(nasMsg)
 		default:
 			nwucpLog.Warnf("Unknown NAS Message Type: %+v", nasMsg.GmmMessage.GetMessageType())
 			continue
@@ -190,4 +197,14 @@ func (s *Server) Stop() {
 	s.serverWg.Wait()
 
 	nwucpLog.Info("NWUCP server shutdown complete")
+}
+
+func (s *Server) StopTCPConnection() {
+	n3ueSelf := s.Context()
+	select {
+	case n3ueSelf.N3IWFRanUe.TcpConnStopCh <- struct{}{}:
+		// TCP connection stopped successfully
+	default:
+		logger.NWuCPLog.Warnf("TCP connection stop channel is not ready (may be full or closed), dropping stop signal")
+	}
 }

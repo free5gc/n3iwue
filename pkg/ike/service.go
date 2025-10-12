@@ -35,6 +35,7 @@ type N3iwue interface {
 	Config() *factory.Config
 	Context() *n3iwue_context.N3UE
 	SendProcedureEvt(evt n3iwue_context.ProcedureEvt)
+	TriggerGracefulShutdown(reason string)
 }
 
 type Server struct {
@@ -399,7 +400,7 @@ func (s *Server) cleanupAllResources() {
 	ikeSA.StopInboundMessageTimer()
 
 	// Stop Retransmit Timer
-	ikeSA.StopReqRetTimer()
+	ikeSA.StopReqRetransTimer()
 }
 
 func (s *Server) CleanChildSAXfrm() error {

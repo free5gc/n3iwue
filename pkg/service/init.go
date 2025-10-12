@@ -46,6 +46,8 @@ type N3iwueApp struct {
 
 	// Graceful shutdown synchronization
 	deregCompleteCh chan struct{} // Channel to signal deregistration completion
+
+	IsDeregistrationComplete bool // Flag to indicate if deregistration is complete
 }
 
 // NewApp creates and initializes a new N3IWUE application instance.
@@ -112,6 +114,10 @@ func Start() {
 		<-signalChannel
 		logger.InitLog.Info("Shutdown signal received, starting graceful shutdown...")
 
+		if n3iwueApp.IsDeregistrationComplete {
+			return
+		}
+
 		// Send deregistration request through NWUCP server
 		if n3iwueApp.nwucpServer != nil {
 			logger.InitLog.Info("Sending deregistration request...")
@@ -131,6 +137,13 @@ func Start() {
 		// Now proceed with normal shutdown
 		cancelCtx()
 		Terminate()
+	}()
+
+	defer func() {
+		select {
+		case signalChannel <- os.Interrupt: // Send signal in case of returning with error
+		default:
+		}
 	}()
 
 	// Start the app
@@ -294,6 +307,23 @@ func (a *N3iwueApp) SignalDeregistrationComplete() {
 	}
 }
 
+// TriggerGracefulShutdown triggers application shutdown from internal events
+func (a *N3iwueApp) TriggerGracefulShutdown(reason string) {
+	mainLog := logger.AppLog
+	mainLog.Infof("Triggering graceful shutdown: %s", reason)
+
+	a.IsDeregistrationComplete = true
+	a.cancel() // Cancel application context
+
+	// Start shutdown process in a separate goroutine
+	go func() {
+		mainLog.Info("Starting internal shutdown process")
+		RemoveIPsecInterfaces()
+		a.terminateProcedure()
+		mainLog.Info("Internal shutdown completed")
+	}()
+}
+
 func RemoveIPsecInterfaces() {
 	n3ueSelf := n3iwue_context.N3UESelf()
 	for _, iface := range n3ueSelf.CreatedIface {
@@ -303,4 +333,5 @@ func RemoveIPsecInterfaces() {
 			logger.AppLog.Infof("Delete interface: %s", (*iface).Attrs().Name)
 		}
 	}
+	n3ueSelf.CreatedIface = n3ueSelf.CreatedIface[:0]
 }

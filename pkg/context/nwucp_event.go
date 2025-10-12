@@ -18,14 +18,16 @@ const (
 	HandleDLNASTransport
 	StartPduSessionEstablishment
 	SendDeregistration
+	HandleDeregistrationReqUeTerminated
 )
 
 var nwucpEvtTypeStr = []string{
-	StartNwucpConn:               "StartNwucpConn",
-	HandleRegistrationAccept:     "HandleRegistrationAccept",
-	HandleDLNASTransport:         "HandleDLNASTransport",
-	StartPduSessionEstablishment: "StartPduSessionEstablishment",
-	SendDeregistration:           "SendDeregistration",
+	StartNwucpConn:                      "StartNwucpConn",
+	HandleRegistrationAccept:            "HandleRegistrationAccept",
+	HandleDLNASTransport:                "HandleDLNASTransport",
+	StartPduSessionEstablishment:        "StartPduSessionEstablishment",
+	SendDeregistration:                  "SendDeregistration",
+	HandleDeregistrationReqUeTerminated: "HandleDeregistrationReqUeTerminated",
 }
 
 func (e NwucpEvtType) String() string {
@@ -87,4 +89,16 @@ func (evt *SendDeregistrationEvt) GetEventType() NwucpEvtType {
 
 func NewSendDeregistrationEvt() *SendDeregistrationEvt {
 	return &SendDeregistrationEvt{}
+}
+
+type HandleDeregistrationReqUeTerminatedEvt struct {
+	NasMsg *nas.Message
+}
+
+func (evt *HandleDeregistrationReqUeTerminatedEvt) GetEventType() NwucpEvtType {
+	return HandleDeregistrationReqUeTerminated
+}
+
+func NewHandleDeregistrationReqUeTerminatedEvt(nasMsg *nas.Message) *HandleDeregistrationReqUeTerminatedEvt {
+	return &HandleDeregistrationReqUeTerminatedEvt{NasMsg: nasMsg}
 }

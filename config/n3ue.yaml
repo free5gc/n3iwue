@@ -32,12 +32,13 @@ configuration:
               SNSSAI: # Single Network Slice Selection Assistance Information
                 SST: 1 # Slice/Service Type (1 byte hex string, range: 0~F)
                 SD: 112233 # Slice Differentiator (3 bytes hex string, range: 000000~FFFFFF)
-        DpdInterval: 5s # Dead peer detection trigger interval, if is 0, disable DPD
+        DpdInterval: 60s # Dead peer detection trigger interval, if is 0, disable DPD
         IkeRetransmit:
             enable: true
             base: 1
             expireTime: 2s
             maxRetryTimes: 3
+        AutoReRegistration: false # Re-registration after connection is failed between N3UE and N3IWF
         Security:
             K: b73a90cbcf3afb622dba83c58a8415df
             RAND: b120f1c1a0102a2f507dd543de68281f

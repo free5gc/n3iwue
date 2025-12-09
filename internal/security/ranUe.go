@@ -448,6 +448,10 @@ func (ue *RanUeContext) VerifyAUTN(autn, rand []byte) (int, error) {
 	}
 
 	sqnOk, err := ue.checkSqn(sqnBytesToUint64(receivedSQN))
+	if err != nil {
+		return AuthParameterError,
+			fmt.Errorf("failed to check SQN: %v", err)
+	}
 
 	// Now verify MAC-A with the recovered SQN
 	milenageResult, err = ue.calculateMilenage(receivedSQN, rand, false)

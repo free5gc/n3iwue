@@ -13,7 +13,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 
-	"github.com/free5gc/ike/eap"
 	ike_eap "github.com/free5gc/ike/eap"
 	ike_message "github.com/free5gc/ike/message"
 	ike_security "github.com/free5gc/ike/security"
@@ -142,11 +141,9 @@ func (s *Server) handleIKESAINIT(
 			ikeLog.Info("Get SA payload")
 		case ike_message.TypeKE:
 			remotePublicKeyExchangeValue := ikePayload.(*ike_message.KeyExchange).KeyExchangeData
-			var i int = 0
-			for {
-				if remotePublicKeyExchangeValue[i] != 0 {
-					break
-				}
+			var i int
+			for remotePublicKeyExchangeValue[i] == 0 {
+				i++
 			}
 			remotePublicKeyExchangeValue = remotePublicKeyExchangeValue[i:]
 			remotePublicKeyExchangeValueBig := new(big.Int).SetBytes(remotePublicKeyExchangeValue)
@@ -193,7 +190,7 @@ func (s *Server) handleIKESAINIT(
 	}
 	ConcatenatedNonce := append(ikeSecurityAssociation.NonceInitiator, ikeSecurityAssociation.NonceResponder...)
 
-	err = ikeSecurityAssociation.IKESAKey.GenerateKeyForIKESA(ConcatenatedNonce,
+	err = ikeSecurityAssociation.GenerateKeyForIKESA(ConcatenatedNonce,
 		sharedKeyExchangeData, ikeSecurityAssociation.LocalSPI, ikeSecurityAssociation.RemoteSPI)
 	if err != nil {
 		ikeLog.Errorf("Generate key for IKE SA failed: %+v", err)
@@ -375,8 +372,8 @@ func (s *Server) handleIKEAUTH(
 		}
 
 		// Calculate for RES*
-		if decodedNAS == nil || decodedNAS.GmmMessage == nil {
-			nasLog.Error("decodedNAS is nil")
+		if decodedNAS.GmmMessage == nil {
+			nasLog.Error("decodedNAS.GmmMessage is nil")
 			return
 		}
 
@@ -388,7 +385,7 @@ func (s *Server) handleIKEAUTH(
 				decodedNAS.GmmMessage.GetMessageType())
 		}
 
-		rand := decodedNAS.AuthenticationRequest.GetRANDValue()
+		rand := decodedNAS.GetRANDValue()
 
 		snn := n3ueSelf.N3ueInfo.GetSNN()
 		nasLog.Infof("SNN: %+v", snn)
@@ -512,7 +509,7 @@ func (s *Server) handleIKEAUTH(
 
 		ikeSecurityAssociation.State++
 	case EAP_NASSecurityComplete:
-		if eapReq.Code != eap.EapCodeSuccess {
+		if eapReq.Code != ike_eap.EapCodeSuccess {
 			ikeLog.Error("Not Success")
 			return
 		}

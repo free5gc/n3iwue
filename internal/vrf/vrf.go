@@ -19,7 +19,7 @@ func CreateOrGetVRF(vrfName string, tableID int) (netlink.Link, error) {
 			}
 			return nil, fmt.Errorf("VRF %s exists but Table ID mismatch (need %d, actual %d)", vrfName, tableID, vrf.Table)
 		}
-		return nil, fmt.Errorf("Device %s exists but is not a VRF", vrfName)
+		return nil, fmt.Errorf("device %s exists but is not a VRF", vrfName)
 	}
 
 	// Create VRF (l3mdev) device

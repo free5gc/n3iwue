@@ -263,11 +263,12 @@ func (ue *RanUeContext) Get5GMMCapability() (capability5GMM *nasType.Capability5
 }
 
 func (ue *RanUeContext) GetBearerType() uint8 {
-	if ue.AnType == models.AccessType__3_GPP_ACCESS {
+	switch ue.AnType {
+	case models.AccessType__3_GPP_ACCESS:
 		return security.Bearer3GPP
-	} else if ue.AnType == models.AccessType_NON_3_GPP_ACCESS {
+	case models.AccessType_NON_3_GPP_ACCESS:
 		return security.BearerNon3GPP
-	} else {
+	default:
 		return security.OnlyOneBearer
 	}
 }

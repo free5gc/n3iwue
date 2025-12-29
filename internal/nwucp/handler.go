@@ -50,7 +50,7 @@ func (s *Server) handleRegistrationAccept(evt *context.HandleRegistrationAcceptE
 	n3ueSelf := s.Context()
 	nasMsg := evt.NasMsg
 	n3ueSelf.RanUeContext.DLCount.AddOne()
-	n3ueSelf.GUTI = nasMsg.GmmMessage.RegistrationAccept.GUTI5G
+	n3ueSelf.GUTI = nasMsg.RegistrationAccept.GUTI5G
 
 	// send NAS Registration Complete Msg
 	pdu := nasPacket.GetRegistrationComplete(nil)
@@ -66,7 +66,7 @@ func (s *Server) handleDLNASTransport(evt *context.HandleDLNASTransportEvt) {
 	n3ueSelf := s.Context()
 	nasMsg := evt.NasMsg
 
-	payloadContainer := nasMsg.GmmMessage.DLNASTransport.PayloadContainer
+	payloadContainer := nasMsg.DLNASTransport.PayloadContainer
 	byteArray := payloadContainer.Buffer[:payloadContainer.Len]
 	if err := nasMsg.GsmMessageDecode(&byteArray); err != nil {
 		nwucpLog.Errorf("NAS Decode Fail: %+v", err)
@@ -77,7 +77,7 @@ func (s *Server) handleDLNASTransport(evt *context.HandleDLNASTransportEvt) {
 	case nas.MsgTypePDUSessionEstablishmentAccept:
 		nwucpLog.Tracef("Get PDUSession Establishment Accept")
 
-		pduAddress, err := nasPacket.GetPDUAddress(nasMsg.GsmMessage.PDUSessionEstablishmentAccept)
+		pduAddress, err := nasPacket.GetPDUAddress(nasMsg.PDUSessionEstablishmentAccept)
 		if err != nil {
 			nwucpLog.Errorf("GetPDUAddress Fail: %+v", err)
 			return
@@ -127,7 +127,7 @@ func (s *Server) handleDLNASTransport(evt *context.HandleDLNASTransportEvt) {
 				nwucpLog.Errorf("not found target address for QFI [%v] from NAS", qfi)
 				continue
 			}
-			//Bind GRE interface to VRF
+			// Bind GRE interface to VRF
 			if err := netlink.LinkSetMaster(tunnel, vrfLink); err != nil {
 				nwucpLog.Errorf("Failed to bind %s to VRF %s", tunnel.Attrs().Name, vrfName)
 				continue
@@ -179,7 +179,7 @@ func (s *Server) handleDeregistrationReqUeTerminated(evt *context.HandleDeregist
 
 	n3ueSelf := s.Context()
 	nasMsg := evt.NasMsg
-	deregistrationRequest := nasMsg.GmmMessage.DeregistrationRequestUETerminatedDeregistration
+	deregistrationRequest := nasMsg.DeregistrationRequestUETerminatedDeregistration
 	if deregistrationRequest == nil {
 		nwucpLog.Errorf("Deregistration Request UE Terminated is nil")
 		return

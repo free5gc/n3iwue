@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"strconv"
 
 	"gopkg.in/yaml.v3"
 
@@ -68,6 +67,10 @@ func WriteConfigWithKey(key, value string) error {
 
 	if ptr := findNodePtrWithKey(&root, key); ptr != nil {
 		ptr.Value = value
+		if key == "SQN" {
+			ptr.Style = 0
+			ptr.Tag = "!!str"
+		}
 	} else {
 		return errors.New("there's no value with the key")
 	}
@@ -110,16 +113,10 @@ func checkConfigVersion() error {
 	return nil
 }
 
-func SyncConfigSQN(offset uint8) error {
-	if sqn, err := strconv.ParseInt(N3ueInfo.Security.SQN, 16, 0); err == nil {
-		sqn = sqn + int64(offset)
-		logger.CfgLog.Infof("Write SQN=%12x into config file", sqn)
-		if err = WriteConfigWithKey("SQN", fmt.Sprintf("%12x", sqn)); err != nil {
-			return fmt.Errorf("write config file: %+v", err)
-		}
-	} else {
-		return fmt.Errorf("parse SQN fail: %+v", err)
+func SyncConfigSQN(sqn uint64) error {
+	logger.CfgLog.Infof("Write SQN=%012x into config file", sqn)
+	if err := WriteConfigWithKey("SQN", fmt.Sprintf("%012x", sqn)); err != nil {
+		return fmt.Errorf("write config file: %+v", err)
 	}
-
 	return nil
 }

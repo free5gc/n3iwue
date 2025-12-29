@@ -38,6 +38,7 @@ func InitN3UEContext() {
 		security.AlgCiphering128NEA0,
 		security.AlgIntegrity128NIA2,
 		models.AccessType_NON_3_GPP_ACCESS,
+		factory.N3ueInfo.Security.SQN,
 	)
 	n3ueContext.RanUeContext.AmfUeNgapId = 1
 	n3ueContext.RanUeContext.AuthenticationSubs = getAuthSubscription()

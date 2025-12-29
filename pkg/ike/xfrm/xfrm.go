@@ -103,7 +103,7 @@ func ApplyXFRMRule(
 	// Commit xfrm state to netlink
 	var err error
 	if err = netlink.XfrmStateAdd(xfrmState); err != nil {
-		return fmt.Errorf("Set XFRM state rule failed: %+v", err)
+		return fmt.Errorf("set XFRM state rule failed: %+v", err)
 	}
 
 	childSecurityAssociation.XfrmStateList = append(childSecurityAssociation.XfrmStateList, *xfrmState)
@@ -134,7 +134,7 @@ func ApplyXFRMRule(
 
 	// Commit xfrm policy to netlink
 	if err = netlink.XfrmPolicyAdd(xfrmPolicy); err != nil {
-		return fmt.Errorf("Set XFRM policy rule failed: %+v", err)
+		return fmt.Errorf("set XFRM policy rule failed: %+v", err)
 	}
 
 	childSecurityAssociation.XfrmPolicyList = append(childSecurityAssociation.XfrmPolicyList, *xfrmPolicy)
@@ -166,7 +166,7 @@ func ApplyXFRMRule(
 
 	// Commit xfrm state to netlink
 	if err = netlink.XfrmStateAdd(xfrmState); err != nil {
-		return fmt.Errorf("Set XFRM state rule failed: %+v", err)
+		return fmt.Errorf("set XFRM state rule failed: %+v", err)
 	}
 
 	childSecurityAssociation.XfrmStateList = append(childSecurityAssociation.XfrmStateList, *xfrmState)
@@ -183,7 +183,7 @@ func ApplyXFRMRule(
 
 	// Commit xfrm policy to netlink
 	if err = netlink.XfrmPolicyAdd(xfrmPolicy); err != nil {
-		return fmt.Errorf("Set XFRM policy rule failed: %+v", err)
+		return fmt.Errorf("set XFRM policy rule failed: %+v", err)
 	}
 
 	childSecurityAssociation.XfrmPolicyList = append(childSecurityAssociation.XfrmPolicyList, *xfrmPolicy)

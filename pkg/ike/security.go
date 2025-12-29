@@ -6,7 +6,6 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/free5gc/ike/message"
 	ike_message "github.com/free5gc/ike/message"
 	ike_security "github.com/free5gc/ike/security"
 	"github.com/free5gc/n3iwue/internal/logger"
@@ -85,7 +84,7 @@ func (s *Server) BuildEAP5GANParameters() []byte {
 		ikeLog.Debugf("S-NSSAI: %+v", snssaiBytes)
 		nssai = append(nssai, snssai...)
 	}
-	anParameter[0] = message.ANParametersTypeRequestedNSSAI
+	anParameter[0] = ike_message.ANParametersTypeRequestedNSSAI
 	anParameter[1] = byte(len(nssai))
 	anParameter = append(anParameter, nssai...)
 

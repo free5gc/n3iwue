@@ -49,20 +49,14 @@ func CalculateIpv4HeaderChecksum(hdr *ipv4.Header) uint32 {
 
 func GetAuthSubscription(k, sqn, amf, opc, op string) models.AuthenticationSubscription {
 	var authSubs models.AuthenticationSubscription
-	authSubs.PermanentKey = &models.PermanentKey{
-		PermanentKeyValue: k,
-	}
-	authSubs.Opc = &models.Opc{
-		OpcValue: opc,
-	}
-	authSubs.Milenage = &models.Milenage{
-		Op: &models.Op{
-			OpValue: op,
-		},
-	}
+	authSubs.EncPermanentKey = k
+	authSubs.EncOpcKey = opc
+	authSubs.EncTopcKey = op
 	authSubs.AuthenticationManagementField = amf
 
-	authSubs.SequenceNumber = sqn
+	authSubs.SequenceNumber = &models.SequenceNumber{
+		Sqn: sqn,
+	}
 	authSubs.AuthenticationMethod = models.AuthMethod__5_G_AKA
 	return authSubs
 }
@@ -82,7 +76,7 @@ func NewRanUeContext(supi string, ranUeNgapId int64, cipheringAlg, integrityAlg 
 func (ue *RanUeContext) DeriveRESstarAndSetKey(
 	authSubs models.AuthenticationSubscription, rand []byte, snName string,
 ) []byte {
-	sqn, err := hex.DecodeString(authSubs.SequenceNumber)
+	sqn, err := hex.DecodeString(authSubs.SequenceNumber.Sqn)
 	if err != nil {
 		fatal.Fatalf("DecodeString error: %+v", err)
 	}
@@ -100,13 +94,13 @@ func (ue *RanUeContext) DeriveRESstarAndSetKey(
 
 	opc := make([]byte, 16)
 	_ = opc
-	k, err := hex.DecodeString(authSubs.PermanentKey.PermanentKeyValue)
+	k, err := hex.DecodeString(authSubs.EncPermanentKey)
 	if err != nil {
 		fatal.Fatalf("DecodeString error: %+v", err)
 	}
 
-	if authSubs.Opc.OpcValue == "" {
-		opStr := authSubs.Milenage.Op.OpValue
+	if authSubs.EncOpcKey == "" {
+		opStr := authSubs.EncTopcKey
 		var op []byte
 		op, err = hex.DecodeString(opStr)
 		if err != nil {
@@ -118,7 +112,7 @@ func (ue *RanUeContext) DeriveRESstarAndSetKey(
 			fatal.Fatalf("milenage GenerateOPC error: %+v", err)
 		}
 	} else {
-		opc, err = hex.DecodeString(authSubs.Opc.OpcValue)
+		opc, err = hex.DecodeString(authSubs.EncOpcKey)
 		if err != nil {
 			fatal.Fatalf("DecodeString error: %+v", err)
 		}
@@ -263,11 +257,12 @@ func (ue *RanUeContext) Get5GMMCapability() (capability5GMM *nasType.Capability5
 }
 
 func (ue *RanUeContext) GetBearerType() uint8 {
-	if ue.AnType == models.AccessType__3_GPP_ACCESS {
+	switch ue.AnType {
+	case models.AccessType__3_GPP_ACCESS:
 		return security.Bearer3GPP
-	} else if ue.AnType == models.AccessType_NON_3_GPP_ACCESS {
+	case models.AccessType_NON_3_GPP_ACCESS:
 		return security.BearerNon3GPP
-	} else {
+	default:
 		return security.OnlyOneBearer
 	}
 }

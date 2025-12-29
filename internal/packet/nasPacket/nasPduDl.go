@@ -17,7 +17,7 @@ func DecodePDUSessionEstablishmentAccept(
 	buffer []byte,
 ) (*nas.Message, error) {
 	if length == 0 {
-		return nil, fmt.Errorf("Empty buffer")
+		return nil, fmt.Errorf("empty buffer")
 	}
 
 	nasEnv, n := ngapPacket.DecapNasPduFromEnvelope(buffer[:length])
@@ -31,7 +31,7 @@ func DecodePDUSessionEstablishmentAccept(
 	}
 
 	// Retrieve GSM from GmmMessage.DLNASTransport.PayloadContainer and decode
-	payloadContainer := nasMsg.GmmMessage.DLNASTransport.PayloadContainer
+	payloadContainer := nasMsg.DLNASTransport.PayloadContainer
 	byteArray := payloadContainer.Buffer[:payloadContainer.Len]
 	if err := nasMsg.GsmMessageDecode(&byteArray); err != nil {
 		return nil, fmt.Errorf("NAS Decode Fail: %+v", err)

@@ -9,6 +9,7 @@ import (
 	"github.com/free5gc/n3iwue/internal/gre"
 	"github.com/free5gc/n3iwue/internal/logger"
 	"github.com/free5gc/n3iwue/internal/packet/nasPacket"
+	"github.com/free5gc/n3iwue/internal/vrf"
 	context "github.com/free5gc/n3iwue/pkg/context"
 	"github.com/free5gc/nas"
 	"github.com/free5gc/nas/nasType"
@@ -49,7 +50,7 @@ func (s *Server) handleRegistrationAccept(evt *context.HandleRegistrationAcceptE
 	n3ueSelf := s.Context()
 	nasMsg := evt.NasMsg
 	n3ueSelf.RanUeContext.DLCount.AddOne()
-	n3ueSelf.GUTI = nasMsg.GmmMessage.RegistrationAccept.GUTI5G
+	n3ueSelf.GUTI = nasMsg.RegistrationAccept.GUTI5G
 
 	// send NAS Registration Complete Msg
 	pdu := nasPacket.GetRegistrationComplete(nil)
@@ -65,7 +66,7 @@ func (s *Server) handleDLNASTransport(evt *context.HandleDLNASTransportEvt) {
 	n3ueSelf := s.Context()
 	nasMsg := evt.NasMsg
 
-	payloadContainer := nasMsg.GmmMessage.DLNASTransport.PayloadContainer
+	payloadContainer := nasMsg.DLNASTransport.PayloadContainer
 	byteArray := payloadContainer.Buffer[:payloadContainer.Len]
 	if err := nasMsg.GsmMessageDecode(&byteArray); err != nil {
 		nwucpLog.Errorf("NAS Decode Fail: %+v", err)
@@ -76,7 +77,7 @@ func (s *Server) handleDLNASTransport(evt *context.HandleDLNASTransportEvt) {
 	case nas.MsgTypePDUSessionEstablishmentAccept:
 		nwucpLog.Tracef("Get PDUSession Establishment Accept")
 
-		pduAddress, err := nasPacket.GetPDUAddress(nasMsg.GsmMessage.PDUSessionEstablishmentAccept)
+		pduAddress, err := nasPacket.GetPDUAddress(nasMsg.PDUSessionEstablishmentAccept)
 		if err != nil {
 			nwucpLog.Errorf("GetPDUAddress Fail: %+v", err)
 			return
@@ -86,6 +87,17 @@ func (s *Server) handleDLNASTransport(evt *context.HandleDLNASTransportEvt) {
 		n3ueSelf.N3ueInfo.DnIPAddr = pduAddress.String()
 
 		newGREName := fmt.Sprintf("%s-id-%d", n3ueSelf.N3ueInfo.GreIfaceName, n3ueSelf.N3ueInfo.XfrmiId)
+
+		// Create VRF
+		vrfName := fmt.Sprintf("vrf-pdu-%d", n3ueSelf.PduSessionCount)
+		vrfTableID := 100 + int(n3ueSelf.PduSessionCount)
+
+		vrfLink, err := vrf.CreateOrGetVRF(vrfName, vrfTableID)
+		if err != nil {
+			nwucpLog.Errorf("Create VRF failed:%s: %v", vrfName, err)
+			return
+		}
+		nwucpLog.Infof("Use VRF %s (Table %d)", vrfName, vrfTableID)
 
 		var linkGREs map[uint8]*netlink.Link
 		if linkGREs, err = gre.SetupGreTunnels(newGREName, n3ueSelf.TemporaryXfrmiName, n3ueSelf.UEInnerAddr.IP,
@@ -115,6 +127,12 @@ func (s *Server) handleDLNASTransport(evt *context.HandleDLNASTransportEvt) {
 				nwucpLog.Errorf("not found target address for QFI [%v] from NAS", qfi)
 				continue
 			}
+			// Bind GRE interface to VRF
+			if err := netlink.LinkSetMaster(tunnel, vrfLink); err != nil {
+				nwucpLog.Errorf("Failed to bind %s to VRF %s", tunnel.Attrs().Name, vrfName)
+				continue
+			}
+			nwucpLog.Infof("Interface %s bound to VRF %s", tunnel.Attrs().Name, vrfName)
 
 			nwucpLog.Infof("Add route: QFI[%+v] remote address[%+v]", qfi, remoteAddress)
 			upRoute := &netlink.Route{
@@ -124,6 +142,7 @@ func (s *Server) handleDLNASTransport(evt *context.HandleDLNASTransportEvt) {
 					Mask: remoteAddress.Mask,
 				},
 				Priority: priority,
+				Table:    vrfTableID,
 			}
 			if err := netlink.RouteAdd(upRoute); err != nil {
 				nwucpLog.Warnf("netlink.RouteAdd: %+v", err)
@@ -160,7 +179,7 @@ func (s *Server) handleDeregistrationReqUeTerminated(evt *context.HandleDeregist
 
 	n3ueSelf := s.Context()
 	nasMsg := evt.NasMsg
-	deregistrationRequest := nasMsg.GmmMessage.DeregistrationRequestUETerminatedDeregistration
+	deregistrationRequest := nasMsg.DeregistrationRequestUETerminatedDeregistration
 	if deregistrationRequest == nil {
 		nwucpLog.Errorf("Deregistration Request UE Terminated is nil")
 		return

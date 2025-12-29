@@ -18,3 +18,11 @@ for XFRMI in ${XFRMIs}; do
     sudo ip link del ${XFRMI}
     echo del ${XFRMI}
 done
+
+# Remove all VRF interfaces
+echo "[Info] Remove all VRF interfaces"
+VRFs=$(ip link show type vrf | awk 'NR%2==1 {print $2}' | cut -d @ -f 1)
+for VRF in ${VRFs}; do
+    sudo ip link del ${VRF}
+    echo del ${VRF}
+done

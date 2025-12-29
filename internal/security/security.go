@@ -73,7 +73,7 @@ func NASEncode(ue *RanUeContext, msg *nas.Message, securityContextAvailable bool
 		// Add mac value
 		payload = append(mac32, payload[:]...)
 		// Add EPD and Security Type
-		msgSecurityHeader := []byte{msg.SecurityHeader.ProtocolDiscriminator, msg.SecurityHeader.SecurityHeaderType}
+		msgSecurityHeader := []byte{msg.ProtocolDiscriminator, msg.SecurityHeaderType}
 		payload = append(msgSecurityHeader, payload[:]...)
 
 		// Increase UL Count
@@ -91,7 +91,7 @@ func NASEnvelopeEncode(ue *RanUeContext, msg *nas.Message, securityContextAvaila
 		return nil, err
 	}
 	if msg == nil {
-		err = fmt.Errorf("Nas Message is empty")
+		err = fmt.Errorf("NAS message is empty")
 		return nil, err
 	}
 
@@ -137,7 +137,7 @@ func NASEnvelopeEncode(ue *RanUeContext, msg *nas.Message, securityContextAvaila
 		// Add mac value
 		payload = append(mac32, payload[:]...)
 		// Add EPD and Security Type
-		msgSecurityHeader := []byte{msg.SecurityHeader.ProtocolDiscriminator, msg.SecurityHeader.SecurityHeaderType}
+		msgSecurityHeader := []byte{msg.ProtocolDiscriminator, msg.SecurityHeaderType}
 		payload = append(msgSecurityHeader, payload[:]...)
 
 		// Increase UL Count
@@ -164,7 +164,7 @@ func NASDecode(ue *RanUeContext, securityHeaderType uint8, payload []byte) (msg 
 		err = msg.PlainNasDecode(&payload)
 		return nil, err
 	} else if ue.IntegrityAlg == security.AlgIntegrity128NIA0 {
-		fmt.Println("decode payload is ", payload)
+		fmt.Printf("decode payload is %x\n", payload)
 		// remove header
 		payload = payload[3:]
 		if err = security.NASEncrypt(ue.CipheringAlg, ue.KnasEnc, ue.DLCount.Get(), ue.GetBearerType(),
@@ -197,11 +197,15 @@ func NASDecode(ue *RanUeContext, securityHeaderType uint8, payload []byte) (msg 
 			ciphered = true
 			ue.DLCount.Set(0, 0)
 		default:
-			return nil, fmt.Errorf("Wrong security header type: 0x%0x", msg.SecurityHeader.SecurityHeaderType)
+			return nil, fmt.Errorf("wrong security header type: 0x%0x", msg.SecurityHeaderType)
 		}
 		// Caculate ul count
 		if ue.DLCount.SQN() > sequenceNumber {
-			ue.DLCount.SetOverflow(ue.DLCount.Overflow() + 1)
+			// Only increment overflow if the difference is large (wrap-around),
+			// otherwise it's likely an out-of-order packet.
+			if ue.DLCount.SQN()-sequenceNumber > 128 {
+				ue.DLCount.SetOverflow(ue.DLCount.Overflow() + 1)
+			}
 		}
 		ue.DLCount.SetSQN(sequenceNumber)
 

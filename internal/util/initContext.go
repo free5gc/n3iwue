@@ -60,20 +60,14 @@ func InitN3UEContext() {
 }
 
 func getAuthSubscription() (authSubs models.AuthenticationSubscription) {
-	authSubs.PermanentKey = &models.PermanentKey{
-		PermanentKeyValue: factory.N3ueInfo.Security.K,
-	}
-	authSubs.Opc = &models.Opc{
-		OpcValue: factory.N3ueInfo.Security.OPC,
-	}
-	authSubs.Milenage = &models.Milenage{
-		Op: &models.Op{
-			OpValue: factory.N3ueInfo.Security.OP,
-		},
-	}
+	authSubs.EncPermanentKey = factory.N3ueInfo.Security.K
+	authSubs.EncOpcKey = factory.N3ueInfo.Security.OPC
+	authSubs.EncTopcKey = factory.N3ueInfo.Security.OP
 	authSubs.AuthenticationManagementField = factory.N3ueInfo.Security.AMF
 
-	authSubs.SequenceNumber = factory.N3ueInfo.Security.SQN
+	authSubs.SequenceNumber = &models.SequenceNumber{
+		Sqn: factory.N3ueInfo.Security.SQN,
+	}
 	authSubs.AuthenticationMethod = models.AuthMethod__5_G_AKA
 	return
 }

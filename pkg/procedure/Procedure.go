@@ -157,14 +157,14 @@ func (s *Server) TestConnectivity(addr string) error {
 	time.Sleep(3 * time.Second)
 
 	if err := pinger.Run(); err != nil {
-		return fmt.Errorf("Running ping failed: %+v", err)
+		return fmt.Errorf("running ping failed: %+v", err)
 	}
 
 	time.Sleep(1 * time.Second)
 
 	stats := pinger.Statistics()
 	if stats.PacketsSent != stats.PacketsRecv {
-		return fmt.Errorf("Ping Failed")
+		return fmt.Errorf("ping failed")
 	}
 
 	return nil

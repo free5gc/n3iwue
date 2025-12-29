@@ -13,7 +13,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 
-	"github.com/free5gc/ike/eap"
 	ike_eap "github.com/free5gc/ike/eap"
 	ike_message "github.com/free5gc/ike/message"
 	ike_security "github.com/free5gc/ike/security"
@@ -142,11 +141,9 @@ func (s *Server) handleIKESAINIT(
 			ikeLog.Info("Get SA payload")
 		case ike_message.TypeKE:
 			remotePublicKeyExchangeValue := ikePayload.(*ike_message.KeyExchange).KeyExchangeData
-			var i int = 0
-			for {
-				if remotePublicKeyExchangeValue[i] != 0 {
-					break
-				}
+			var i int
+			for remotePublicKeyExchangeValue[i] == 0 {
+				i++
 			}
 			remotePublicKeyExchangeValue = remotePublicKeyExchangeValue[i:]
 			remotePublicKeyExchangeValueBig := new(big.Int).SetBytes(remotePublicKeyExchangeValue)
@@ -193,7 +190,7 @@ func (s *Server) handleIKESAINIT(
 	}
 	ConcatenatedNonce := append(ikeSecurityAssociation.NonceInitiator, ikeSecurityAssociation.NonceResponder...)
 
-	err = ikeSecurityAssociation.IKESAKey.GenerateKeyForIKESA(ConcatenatedNonce,
+	err = ikeSecurityAssociation.GenerateKeyForIKESA(ConcatenatedNonce,
 		sharedKeyExchangeData, ikeSecurityAssociation.LocalSPI, ikeSecurityAssociation.RemoteSPI)
 	if err != nil {
 		ikeLog.Errorf("Generate key for IKE SA failed: %+v", err)
@@ -477,7 +474,7 @@ func (s *Server) handleIKEAUTH(
 
 		ikeSecurityAssociation.State++
 	case EAP_NASSecurityComplete:
-		if eapReq.Code != eap.EapCodeSuccess {
+		if eapReq.Code != ike_eap.EapCodeSuccess {
 			ikeLog.Error("Not Success")
 			return
 		}
@@ -1327,7 +1324,7 @@ func (s *Server) HandleNas(nasData []byte) ([]byte, bool) {
 	}
 
 	// Calculate for RES*
-	if decodedNAS == nil || decodedNAS.GmmMessage == nil {
+	if decodedNAS.GmmMessage == nil {
 		nasLog.Error("HandleNas(): decodedNAS is nil")
 		return nil, false
 	}
@@ -1338,14 +1335,14 @@ func (s *Server) HandleNas(nasData []byte) ([]byte, bool) {
 		nasLog.Info("Received Authentication Request")
 
 		// Extract RAND and AUTN parameters
-		rand := decodedNAS.AuthenticationRequest.AuthenticationParameterRAND.GetRANDValue()
+		rand := decodedNAS.GetRANDValue()
 
 		// Check if AUTN is present
-		if decodedNAS.AuthenticationRequest.AuthenticationParameterAUTN == nil {
+		if decodedNAS.AuthenticationParameterAUTN == nil {
 			nasLog.Error("AUTN parameter missing in Authentication Request")
 			return nil, false
 		}
-		autn := decodedNAS.AuthenticationRequest.AuthenticationParameterAUTN.GetAUTN()
+		autn := decodedNAS.GetAUTN()
 
 		nasLog.Infof("RAND: %x", rand)
 		nasLog.Infof("AUTN: %x", autn)

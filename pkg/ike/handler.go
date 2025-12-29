@@ -345,14 +345,7 @@ func (s *Server) handleIKEAUTH(
 			return
 		}
 
-		// TS 33.102
-		// Sync the SQN for security in config
-		if err = factory.SyncConfigSQN(1); err != nil {
-			ikeLog.Errorf("syncConfigSQN: %+v", err)
-			return
-		}
 		ikeSecurityAssociation.State++
-
 	case EAP_RegistrationRequest:
 		var eapExpanded *ike_eap.EapExpanded
 		eapExpanded, ok = eapReq.EapTypeData.(*ike_eap.EapExpanded)
@@ -361,44 +354,13 @@ func (s *Server) handleIKEAUTH(
 			return
 		}
 
-		var decodedNAS *nas.Message
-
 		// Decode NAS - Authentication Request
 		nasData := eapExpanded.VendorData[4:]
-		decodedNAS = new(nas.Message)
-		if err = decodedNAS.PlainNasDecode(&nasData); err != nil {
-			ikeLog.Errorf("Decode plain NAS fail: %+v", err)
+		pdu, keepAuth := s.HandleNas(nasData)
+		if pdu == nil {
+			ikeLog.Error("HandleNas() failed")
 			return
 		}
-
-		// Calculate for RES*
-		if decodedNAS.GmmMessage == nil {
-			nasLog.Error("decodedNAS.GmmMessage is nil")
-			return
-		}
-
-		switch decodedNAS.GmmMessage.GetMessageType() {
-		case nas.MsgTypeAuthenticationRequest:
-			nasLog.Info("Received Authentication Request")
-		default:
-			nasLog.Errorf("Received unexpected message type: %d",
-				decodedNAS.GmmMessage.GetMessageType())
-		}
-
-		rand := decodedNAS.GetRANDValue()
-
-		snn := n3ueSelf.N3ueInfo.GetSNN()
-		nasLog.Infof("SNN: %+v", snn)
-		resStat := ue.DeriveRESstarAndSetKey(ue.AuthenticationSubs, rand[:], snn)
-
-		nasLog.Infof("KnasEnc: %0x", ue.KnasEnc)
-		nasLog.Infof("KnasInt: %0x", ue.KnasInt)
-		nasLog.Infof("Kamf: %0x", ue.Kamf)
-		nasLog.Infof("AnType: %s", ue.AnType)
-		nasLog.Infof("SUPI: %s", ue.Supi)
-
-		// send NAS Authentication Response
-		pdu := nasPacket.GetAuthenticationResponse(resStat, "")
 
 		// IKE_AUTH - EAP exchange
 		ikeSecurityAssociation.InitiatorMessageID++
@@ -439,7 +401,10 @@ func (s *Server) handleIKEAUTH(
 			return
 		}
 
-		ikeSecurityAssociation.State++
+		if !keepAuth {
+			// keep authentication, and keep the ike state until the authentication is successful
+			ikeSecurityAssociation.State++
+		}
 	case EAP_Authentication:
 		_, ok = eapReq.EapTypeData.(*ike_eap.EapExpanded)
 		if !ok {
@@ -1344,4 +1309,97 @@ func (s *Server) handleIkeReconnect() {
 
 	// Trigger procedure restart via RestartRegistration event
 	s.SendProcedureEvt(context.NewRestartRegistrationEvt())
+}
+
+// return (nasPdu, keepAuthentication)
+func (s *Server) HandleNas(nasData []byte) ([]byte, bool) {
+	nasLog := logger.NASLog
+
+	n3ueSelf := s.Context()
+	ue := n3ueSelf.RanUeContext
+	decodedNAS := new(nas.Message)
+	if err := decodedNAS.PlainNasDecode(&nasData); err != nil {
+		nasLog.Errorf("HandleNas(): Decode plain NAS fail: %+v", err)
+		return nil, false
+	}
+
+	// Calculate for RES*
+	if decodedNAS == nil || decodedNAS.GmmMessage == nil {
+		nasLog.Error("HandleNas(): decodedNAS is nil")
+		return nil, false
+	}
+
+	var pdu []byte
+	switch decodedNAS.GmmMessage.GetMessageType() {
+	case nas.MsgTypeAuthenticationRequest:
+		nasLog.Info("Received Authentication Request")
+
+		// Extract RAND and AUTN parameters
+		rand := decodedNAS.AuthenticationRequest.AuthenticationParameterRAND.GetRANDValue()
+
+		// Check if AUTN is present
+		if decodedNAS.AuthenticationRequest.AuthenticationParameterAUTN == nil {
+			nasLog.Error("AUTN parameter missing in Authentication Request")
+			return nil, false
+		}
+		autn := decodedNAS.AuthenticationRequest.AuthenticationParameterAUTN.GetAUTN()
+
+		nasLog.Infof("RAND: %x", rand)
+		nasLog.Infof("AUTN: %x", autn)
+
+		// Perform AUTN verification and SQN synchronization
+		authResult, err := ue.VerifyAUTN(autn[:], rand[:])
+		if err != nil {
+			nasLog.Errorf("AUTN verification failed: %v", err)
+		}
+
+		var resStat []byte
+
+		switch authResult {
+		case 0: // AUTH_SUCCESS
+			nasLog.Info("AUTN verification successful, SQN is fresh")
+			// Update SQN and derive RES*
+			snn := n3ueSelf.N3ueInfo.GetSNN()
+			resStat = ue.DeriveRESstarAndSetKey(ue.AuthenticationSubs, rand[:], snn, autn[:])
+
+		case 1: // AUTH_SQN_FAILURE
+			nasLog.Warn("SQN failure detected, generating AUTS for re-synchronization")
+			auts, err := ue.GenerateAUTS(rand[:])
+			if err != nil {
+				nasLog.Errorf("AUTS generation failed: %v", err)
+				return nil, false
+			}
+
+			nasLog.Infof("Generated AUTS: %x", auts)
+			// Send Authentication Failure with AUTS
+			pdu = nasPacket.GetAuthenticationFailure(0x15, auts) // EMM cause 0x15 = Synch failure
+			return pdu, true
+
+		case 2: // AUTH_MAC_FAILURE
+			nasLog.Error("MAC verification failed - possible attack or corruption")
+			// Send Authentication Failure without AUTS
+			pdu = nasPacket.GetAuthenticationFailure(0x14, nil) // EMM cause 0x14 = MAC failure
+			return pdu, false
+
+		default:
+			nasLog.Errorf("Unknown authentication result: %d", authResult)
+			return nil, false
+		}
+
+		nasLog.Infof("KnasEnc: %0x", ue.KnasEnc)
+		nasLog.Infof("KnasInt: %0x", ue.KnasInt)
+		nasLog.Infof("Kamf: %0x", ue.Kamf)
+		nasLog.Infof("AnType: %s", ue.AnType)
+		nasLog.Infof("SUPI: %s", ue.Supi)
+
+		// send NAS Authentication Response
+		pdu = nasPacket.GetAuthenticationResponse(resStat, "")
+
+	default:
+		nasLog.Errorf("Received unexpected message type: %d",
+			decodedNAS.GmmMessage.GetMessageType())
+		return nil, false
+	}
+
+	return pdu, false
 }

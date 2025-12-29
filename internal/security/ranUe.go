@@ -455,15 +455,11 @@ func (ue *RanUeContext) VerifyAUTN(autn, rand []byte) (int, error) {
 	}
 
 	// Check SQN after MAC verification
-	sqnOk, err := ue.checkSqn(sqnBytesToUint64(receivedSQN))
-	if err != nil {
+	if err := ue.checkSqn(sqnBytesToUint64(receivedSQN)); err != nil {
 		return SQNOutOfSync,
 			fmt.Errorf("failed to check SQN: %v", err)
 	}
 
-	if !sqnOk {
-		return SQNOutOfSync, err
-	}
 	nasLog.Infof("Extracted SQN from AUTN: %x", receivedSQN)
 
 	return AuthSuccess, nil
@@ -471,29 +467,26 @@ func (ue *RanUeContext) VerifyAUTN(autn, rand []byte) (int, error) {
 
 // checkSqn implements validation SQN algorithm
 // SQN = SEQ || IND (TS 33.102 C.1.1)
-func (ue *RanUeContext) checkSqn(sqn uint64) (bool, error) {
+func (ue *RanUeContext) checkSqn(sqn uint64) error {
 	seq := ue.getSeqFromSqn(sqn)
 	ind := ue.getIndFromSqn(sqn)
 
 	// Check 1: SQN too far ahead (wrapping delta check)
 	seqMs := ue.getSeqMs()
 	if seq > seqMs && (seq-seqMs) > ue.SQNWrappingDelta {
-		return false,
-			fmt.Errorf("SQN too far ahead: seq=%d, seqMs=%d, delta=%d",
-				seq, seqMs, ue.SQNWrappingDelta)
+		return fmt.Errorf("SQN too far ahead: seq=%d, seqMs=%d, delta=%d",
+			seq, seqMs, ue.SQNWrappingDelta)
 	}
 
 	// Check 2: Replay attack prevention (SQN must be greater than stored for this index)
 	if len(ue.SQNArray) <= int(ind) {
-		return false,
-			fmt.Errorf("invalid SQN index: %d (array size: %d)", ind, len(ue.SQNArray))
+		return fmt.Errorf("invalid SQN index: %d (array size: %d)", ind, len(ue.SQNArray))
 	}
 
 	storedSeqForInd := ue.getSeqFromSqn(ue.SQNArray[ind])
 	if seq <= storedSeqForInd {
-		return false,
-			fmt.Errorf("SQN replay or too old: seq=%d <= stored_seq=%d for index=%d",
-				seq, storedSeqForInd, ind)
+		return fmt.Errorf("SQN replay or too old: seq=%d <= stored_seq=%d for index=%d",
+			seq, storedSeqForInd, ind)
 	}
 
 	// SQN is acceptable - update the array
@@ -502,10 +495,10 @@ func (ue *RanUeContext) checkSqn(sqn uint64) (bool, error) {
 	// TS 33.102
 	// Sync the SQN for security in config
 	if err := factory.SyncConfigSQN(sqn); err != nil {
-		return false, fmt.Errorf("failed to sync config SQN: %v", err)
+		return fmt.Errorf("failed to sync config SQN: %v", err)
 	}
 
-	return true, nil
+	return nil
 }
 
 // GenerateAUTS generates Authentication Token for re-Synchronization

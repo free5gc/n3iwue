@@ -201,7 +201,11 @@ func NASDecode(ue *RanUeContext, securityHeaderType uint8, payload []byte) (msg 
 		}
 		// Caculate ul count
 		if ue.DLCount.SQN() > sequenceNumber {
-			ue.DLCount.SetOverflow(ue.DLCount.Overflow() + 1)
+			// Only increment overflow if the difference is large (wrap-around),
+			// otherwise it's likely an out-of-order packet.
+			if ue.DLCount.SQN()-sequenceNumber > 128 {
+				ue.DLCount.SetOverflow(ue.DLCount.Overflow() + 1)
+			}
 		}
 		ue.DLCount.SetSQN(sequenceNumber)
 

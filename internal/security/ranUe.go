@@ -66,23 +66,17 @@ func CalculateIpv4HeaderChecksum(hdr *ipv4.Header) uint32 {
 }
 
 func GetAuthSubscription(k, sqn, amf, opc, op string) models.AuthenticationSubscription {
-	AuthSubs := models.AuthenticationSubscription{
-		PermanentKey: &models.PermanentKey{
-			PermanentKeyValue: k,
-		},
-		Opc: &models.Opc{
-			OpcValue: opc,
-		},
-		Milenage: &models.Milenage{
-			Op: &models.Op{
-				OpValue: op,
-			},
-		},
-		AuthenticationManagementField: amf,
-		SequenceNumber:                sqn,
-		AuthenticationMethod:          models.AuthMethod__5_G_AKA,
+	var authSubs models.AuthenticationSubscription
+	authSubs.EncPermanentKey = k
+	authSubs.EncOpcKey = opc
+	authSubs.EncTopcKey = op
+	authSubs.AuthenticationManagementField = amf
+
+	authSubs.SequenceNumber = &models.SequenceNumber{
+		Sqn: sqn,
 	}
-	return AuthSubs
+	authSubs.AuthenticationMethod = models.AuthMethod__5_G_AKA
+	return authSubs
 }
 
 func NewRanUeContext(supi string, ranUeNgapId int64, cipheringAlg, integrityAlg uint8,
@@ -116,7 +110,7 @@ func NewRanUeContext(supi string, ranUeNgapId int64, cipheringAlg, integrityAlg 
 func (ue *RanUeContext) DeriveRESstarAndSetKey(
 	authSubs models.AuthenticationSubscription, rand []byte, snName string, autn []byte,
 ) []byte {
-	sqn, err := hex.DecodeString(authSubs.SequenceNumber)
+	sqn, err := hex.DecodeString(authSubs.SequenceNumber.Sqn)
 	if err != nil {
 		fatal.Fatalf("DecodeString error: %+v", err)
 	}
@@ -387,7 +381,7 @@ func (ue *RanUeContext) calculateMilenage(sqn, rand []byte, dummyAmf bool) (*Mil
 // getCryptographicKeys extracts K, OPc, and AMF from the authentication subscription
 func (ue *RanUeContext) getCryptographicKeys() (k, opc, amf []byte, err error) {
 	// Decode permanent key (K)
-	k, err = hex.DecodeString(ue.AuthenticationSubs.PermanentKey.PermanentKeyValue)
+	k, err = hex.DecodeString(ue.AuthenticationSubs.EncPermanentKey)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("failed to decode permanent key: %v", err)
 	}
@@ -399,14 +393,14 @@ func (ue *RanUeContext) getCryptographicKeys() (k, opc, amf []byte, err error) {
 	}
 
 	// Decode or generate OPC
-	if ue.AuthenticationSubs.Opc.OpcValue != "" {
-		opc, err = hex.DecodeString(ue.AuthenticationSubs.Opc.OpcValue)
+	if ue.AuthenticationSubs.EncOpcKey != "" {
+		opc, err = hex.DecodeString(ue.AuthenticationSubs.EncOpcKey)
 		if err != nil {
 			return nil, nil, nil, fmt.Errorf("failed to decode OPC: %v", err)
 		}
 	} else {
 		// Generate OPC from OP
-		op, err := hex.DecodeString(ue.AuthenticationSubs.Milenage.Op.OpValue)
+		op, err := hex.DecodeString(ue.AuthenticationSubs.EncTopcKey)
 		if err != nil {
 			return nil, nil, nil, fmt.Errorf("failed to decode OP: %v", err)
 		}
@@ -448,12 +442,6 @@ func (ue *RanUeContext) VerifyAUTN(autn, rand []byte) (int, error) {
 		receivedSQN[i] = receivedSQNxorAK[i] ^ milenageResult.ak[i]
 	}
 
-	sqnOk, err := ue.checkSqn(sqnBytesToUint64(receivedSQN))
-	if err != nil {
-		return AuthParameterError,
-			fmt.Errorf("failed to check SQN: %v", err)
-	}
-
 	// Now verify MAC-A with the recovered SQN
 	milenageResult, err = ue.calculateMilenage(receivedSQN, rand, false)
 	if err != nil {
@@ -466,9 +454,12 @@ func (ue *RanUeContext) VerifyAUTN(autn, rand []byte) (int, error) {
 			fmt.Errorf("MAC-A verification failed")
 	}
 
-	if !sqnOk {
-		return SQNOutOfSync, err
+	// Check SQN after MAC verification
+	if err := ue.checkSqn(sqnBytesToUint64(receivedSQN)); err != nil {
+		return SQNOutOfSync,
+			fmt.Errorf("failed to check SQN: %v", err)
 	}
+
 	nasLog.Infof("Extracted SQN from AUTN: %x", receivedSQN)
 
 	return AuthSuccess, nil
@@ -476,29 +467,26 @@ func (ue *RanUeContext) VerifyAUTN(autn, rand []byte) (int, error) {
 
 // checkSqn implements validation SQN algorithm
 // SQN = SEQ || IND (TS 33.102 C.1.1)
-func (ue *RanUeContext) checkSqn(sqn uint64) (bool, error) {
+func (ue *RanUeContext) checkSqn(sqn uint64) error {
 	seq := ue.getSeqFromSqn(sqn)
 	ind := ue.getIndFromSqn(sqn)
 
 	// Check 1: SQN too far ahead (wrapping delta check)
 	seqMs := ue.getSeqMs()
 	if seq > seqMs && (seq-seqMs) > ue.SQNWrappingDelta {
-		return false,
-			fmt.Errorf("SQN too far ahead: seq=%d, seqMs=%d, delta=%d",
-				seq, seqMs, ue.SQNWrappingDelta)
+		return fmt.Errorf("SQN too far ahead: seq=%d, seqMs=%d, delta=%d",
+			seq, seqMs, ue.SQNWrappingDelta)
 	}
 
 	// Check 2: Replay attack prevention (SQN must be greater than stored for this index)
 	if len(ue.SQNArray) <= int(ind) {
-		return false,
-			fmt.Errorf("invalid SQN index: %d (array size: %d)", ind, len(ue.SQNArray))
+		return fmt.Errorf("invalid SQN index: %d (array size: %d)", ind, len(ue.SQNArray))
 	}
 
 	storedSeqForInd := ue.getSeqFromSqn(ue.SQNArray[ind])
 	if seq <= storedSeqForInd {
-		return false,
-			fmt.Errorf("SQN replay or too old: seq=%d <= stored_seq=%d for index=%d",
-				seq, storedSeqForInd, ind)
+		return fmt.Errorf("SQN replay or too old: seq=%d <= stored_seq=%d for index=%d",
+			seq, storedSeqForInd, ind)
 	}
 
 	// SQN is acceptable - update the array
@@ -507,10 +495,10 @@ func (ue *RanUeContext) checkSqn(sqn uint64) (bool, error) {
 	// TS 33.102
 	// Sync the SQN for security in config
 	if err := factory.SyncConfigSQN(sqn); err != nil {
-		return false, fmt.Errorf("failed to sync config SQN: %v", err)
+		return fmt.Errorf("failed to sync config SQN: %v", err)
 	}
 
-	return true, nil
+	return nil
 }
 
 // GenerateAUTS generates Authentication Token for re-Synchronization

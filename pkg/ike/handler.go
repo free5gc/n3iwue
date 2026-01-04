@@ -1324,7 +1324,7 @@ func (s *Server) HandleNas(nasData []byte) ([]byte, bool) {
 	}
 
 	// Calculate for RES*
-	if decodedNAS == nil || decodedNAS.GmmMessage == nil {
+	if decodedNAS.GmmMessage == nil {
 		nasLog.Error("HandleNas(): decodedNAS is nil")
 		return nil, false
 	}
@@ -1335,14 +1335,14 @@ func (s *Server) HandleNas(nasData []byte) ([]byte, bool) {
 		nasLog.Info("Received Authentication Request")
 
 		// Extract RAND and AUTN parameters
-		rand := decodedNAS.AuthenticationRequest.AuthenticationParameterRAND.GetRANDValue()
+		rand := decodedNAS.GetRANDValue()
 
 		// Check if AUTN is present
-		if decodedNAS.AuthenticationRequest.AuthenticationParameterAUTN == nil {
+		if decodedNAS.AuthenticationParameterAUTN == nil {
 			nasLog.Error("AUTN parameter missing in Authentication Request")
 			return nil, false
 		}
-		autn := decodedNAS.AuthenticationRequest.AuthenticationParameterAUTN.GetAUTN()
+		autn := decodedNAS.GetAUTN()
 
 		nasLog.Infof("RAND: %x", rand)
 		nasLog.Infof("AUTN: %x", autn)

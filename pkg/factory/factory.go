@@ -116,7 +116,7 @@ func checkConfigVersion() error {
 func SyncConfigSQN(sqn uint64) error {
 	logger.CfgLog.Infof("Write SQN=%012x into config file", sqn)
 	if err := WriteConfigWithKey("SQN", fmt.Sprintf("%012x", sqn)); err != nil {
-		return fmt.Errorf("Write config file: %+v", err)
+		return fmt.Errorf("write config file: %+v", err)
 	}
 	return nil
 }

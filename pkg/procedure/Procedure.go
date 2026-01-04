@@ -142,10 +142,15 @@ func (s *Server) TestConnectivity(addr string) error {
 	// Use ip vrf exec to ping
 	cmd := exec.CommandContext(context.Background(), "ip", args...)
 
-	// We can capture output to log it
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("ping failed: %v, output: %s", err, string(output))
+	if err := pinger.Run(); err != nil {
+		return fmt.Errorf("running ping failed: %+v", err)
+	}
+
+	time.Sleep(1 * time.Second)
+
+	stats := pinger.Statistics()
+	if stats.PacketsSent != stats.PacketsRecv {
+		return fmt.Errorf("ping failed")
 	}
 
 	AppLog.Infof("Ping output:\n%s", string(output))

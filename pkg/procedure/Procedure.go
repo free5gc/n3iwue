@@ -3,10 +3,11 @@ package procedure
 import (
 	"context"
 	"fmt"
-	"os/exec"
 	"runtime/debug"
 	"sync"
+	"time"
 
+	"github.com/go-ping/ping"
 	"github.com/sirupsen/logrus"
 
 	"github.com/free5gc/n3iwue/internal/logger"
@@ -126,21 +127,34 @@ func (s *Server) handleEvent(evt n3iwue_context.ProcedureEvt) {
 func (s *Server) TestConnectivity(addr string) error {
 	n3ueSelf := s.Context()
 
-	// Calculate the VRF ID used for the last session
-	// Since PduSessionCount is incremented after session establishment, we subtract 1
-	vrfID := n3ueSelf.PduSessionCount - 1
-	vrfName := fmt.Sprintf("vrf-pdu-%d", vrfID)
-
-	AppLog.Infof("Ping %s using VRF %s", addr, vrfName)
-
-	args := []string{"vrf", "exec", vrfName, "ping", "-c", "5"}
-	if n3ueSelf.N3ueInfo.DnIPAddr != "" {
-		args = append(args, "-I", n3ueSelf.N3ueInfo.DnIPAddr)
+	// Ping remote
+	pinger, err := ping.NewPinger(addr)
+	if err != nil {
+		return err
 	}
-	args = append(args, addr)
 
-	// Use ip vrf exec to ping
-	cmd := exec.CommandContext(context.Background(), "ip", args...)
+	// Run with root
+	pinger.SetPrivileged(true)
+
+	pinger.OnRecv = func(pkt *ping.Packet) {
+		AppLog.Infof("%d bytes from %s: icmp_seq=%d time=%v\n",
+			pkt.Nbytes, pkt.IPAddr, pkt.Seq, pkt.Rtt)
+	}
+	pinger.OnFinish = func(stats *ping.Statistics) {
+		AppLog.Infof("\n--- %s ping statistics ---\n", stats.Addr)
+		AppLog.Infof("%d packets transmitted, %d packets received, %v%% packet loss\n",
+			stats.PacketsSent, stats.PacketsRecv, stats.PacketLoss)
+		AppLog.Infof("round-trip min/avg/max/stddev = %v/%v/%v/%v\n",
+			stats.MinRtt, stats.AvgRtt, stats.MaxRtt, stats.StdDevRtt)
+	}
+
+	pinger.Count = 5
+	pinger.Timeout = 10 * time.Second
+	if n3ueSelf.N3ueInfo.DnIPAddr != "" {
+		pinger.Source = n3ueSelf.N3ueInfo.DnIPAddr
+	}
+
+	time.Sleep(3 * time.Second)
 
 	if err := pinger.Run(); err != nil {
 		return fmt.Errorf("running ping failed: %+v", err)
@@ -153,7 +167,6 @@ func (s *Server) TestConnectivity(addr string) error {
 		return fmt.Errorf("ping failed")
 	}
 
-	AppLog.Infof("Ping output:\n%s", string(output))
 	return nil
 }
 

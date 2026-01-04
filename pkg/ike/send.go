@@ -9,7 +9,6 @@ import (
 
 	"github.com/free5gc/ike"
 	ike_message "github.com/free5gc/ike/message"
-	"github.com/free5gc/ike/security"
 	ike_security "github.com/free5gc/ike/security"
 	"github.com/free5gc/ike/security/dh"
 	"github.com/free5gc/n3iwue/internal/logger"
@@ -234,7 +233,7 @@ func (s *Server) SendIkeMsgToN3iwf(
 	ikeLog.Trace("Send IKE message to N3IWF")
 	ikeLog.Trace("Encoding...")
 
-	var ikeSAKey *security.IKESAKey
+	var ikeSAKey *ike_security.IKESAKey
 	if ikeSA != nil {
 		ikeSAKey = ikeSA.IKESAKey
 	}

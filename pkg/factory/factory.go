@@ -72,7 +72,7 @@ func WriteConfigWithKey(key, value string) error {
 			ptr.Tag = "!!str"
 		}
 	} else {
-		return errors.New("There's no value with the key")
+		return errors.New("there's no value with the key")
 	}
 
 	if data, err = yaml.Marshal(&root); err != nil {
@@ -104,7 +104,7 @@ func checkConfigVersion() error {
 	currentVersion := N3ueConfig.GetVersion()
 
 	if currentVersion != N3ueExpectedConfigVersion {
-		return fmt.Errorf("config version is [%s], but expected is [%s].",
+		return fmt.Errorf("config version is [%s], but expected is [%s]",
 			currentVersion, N3ueExpectedConfigVersion)
 	}
 
@@ -116,7 +116,7 @@ func checkConfigVersion() error {
 func SyncConfigSQN(sqn uint64) error {
 	logger.CfgLog.Infof("Write SQN=%012x into config file", sqn)
 	if err := WriteConfigWithKey("SQN", fmt.Sprintf("%012x", sqn)); err != nil {
-		return fmt.Errorf("Write config file: %+v", err)
+		return fmt.Errorf("write config file: %+v", err)
 	}
 	return nil
 }

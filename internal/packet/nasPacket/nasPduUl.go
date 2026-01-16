@@ -5,7 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
-	"math/rand"
+	"sync/atomic"
 
 	"github.com/free5gc/nas"
 	"github.com/free5gc/nas/logger"
@@ -24,6 +24,23 @@ const (
 	PDUSesRelRej     string = "PDU Session Release Reject"
 	PDUSesAuthCmp    string = "PDU Session Authentication Complete"
 )
+
+var pti atomic.Uint32
+
+func getNextPTI(pti *atomic.Uint32) uint8 {
+	for {
+		old := pti.Load()
+
+		next := old + 1
+		if next == 0 || next > 254 {
+			next = 1
+		}
+
+		if pti.CompareAndSwap(old, next) {
+			return uint8(next)
+		}
+	}
+}
 
 func GetRegistrationRequest(
 	registrationType uint8,
@@ -82,10 +99,9 @@ func GetPduSessionEstablishmentRequest(pduSessionId uint8) []byte {
 		nasMessage.Epd5GSSessionManagementMessage)
 	pduSessionEstablishmentRequest.SetMessageType(nas.MsgTypePDUSessionEstablishmentRequest)
   pduSessionEstablishmentRequest.SetPDUSessionID(pduSessionId)
-  
+
 	// UE shall use a PTI value in the range [1, 254], 0 means unassigned and 255 reserved (Ref. TS 24 007 11.2.3.1a)
-	pti := rand.Intn(254) + 1
-	pduSessionEstablishmentRequest.SetPTI(uint8(pti))
+	pduSessionEstablishmentRequest.SetPTI(getNextPTI(&pti))
 
 	pduSessionEstablishmentRequest.
 		SetMaximumDataRatePerUEForUserPlaneIntegrityProtectionForDownLink(0xff)
@@ -254,8 +270,7 @@ func GetPduSessionModificationRequest(pduSessionId uint8) []byte {
 	pduSessionModificationRequest.SetPDUSessionID(pduSessionId)
 
 	// UE shall use a PTI value in the range [1, 254], 0 means unassigned and 255 reserved (Ref. TS 24 007 11.2.3.1a)
-	pti := rand.Intn(254) + 1
-	pduSessionModificationRequest.SetPTI(uint8(pti))
+	pduSessionModificationRequest.SetPTI(getNextPTI(&pti))
 
 	// pduSessionModificationRequest.RequestedQosFlowDescriptions = nasType.NewRequestedQosFlowDescriptions(nasMessage.
 	// PDUSessionModificationRequestRequestedQosFlowDescriptionsType)
@@ -332,8 +347,7 @@ func GetPduSessionReleaseRequest(pduSessionId uint8) []byte {
 	pduSessionReleaseRequest.SetPDUSessionID(pduSessionId)
 
 	// UE shall use a PTI value in the range [1, 254], 0 means unassigned and 255 reserved (Ref. TS 24 007 11.2.3.1a)
-	pti := rand.Intn(254) + 1
-	pduSessionReleaseRequest.SetPTI(uint8(pti))
+	pduSessionReleaseRequest.SetPTI(getNextPTI(&pti))
 
 	m.PDUSessionReleaseRequest = pduSessionReleaseRequest
 

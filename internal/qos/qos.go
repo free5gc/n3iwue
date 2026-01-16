@@ -16,7 +16,7 @@ type PDUQoSInfo struct {
 
 func Parse5GQoSInfoNotify(n *message.Notification) (info *PDUQoSInfo, err error) {
 	info = new(PDUQoSInfo)
-	var offset int = 0
+	var offset int
 	data := n.NotificationData
 	dataLen := int(data[0])
 	info.PduSessionID = data[1]

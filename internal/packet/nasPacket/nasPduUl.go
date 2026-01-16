@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
+	"sync/atomic"
 
 	"github.com/free5gc/nas"
 	"github.com/free5gc/nas/logger"
@@ -23,6 +24,23 @@ const (
 	PDUSesRelRej     string = "PDU Session Release Reject"
 	PDUSesAuthCmp    string = "PDU Session Authentication Complete"
 )
+
+var pti atomic.Uint32
+
+func getNextPTI(pti *atomic.Uint32) uint8 {
+	for {
+		old := pti.Load()
+
+		next := old + 1
+		if next == 0 || next > 254 {
+			next = 1
+		}
+
+		if pti.CompareAndSwap(old, next) {
+			return uint8(next)
+		}
+	}
+}
 
 func GetRegistrationRequest(
 	registrationType uint8,
@@ -80,8 +98,11 @@ func GetPduSessionEstablishmentRequest(pduSessionId uint8) []byte {
 	pduSessionEstablishmentRequest.SetExtendedProtocolDiscriminator(
 		nasMessage.Epd5GSSessionManagementMessage)
 	pduSessionEstablishmentRequest.SetMessageType(nas.MsgTypePDUSessionEstablishmentRequest)
-	pduSessionEstablishmentRequest.SetPDUSessionID(pduSessionId)
-	pduSessionEstablishmentRequest.SetPTI(0x00)
+  pduSessionEstablishmentRequest.SetPDUSessionID(pduSessionId)
+
+	// UE shall use a PTI value in the range [1, 254], 0 means unassigned and 255 reserved (Ref. TS 24 007 11.2.3.1a)
+	pduSessionEstablishmentRequest.SetPTI(getNextPTI(&pti))
+
 	pduSessionEstablishmentRequest.
 		SetMaximumDataRatePerUEForUserPlaneIntegrityProtectionForDownLink(0xff)
 	pduSessionEstablishmentRequest.
@@ -247,7 +268,10 @@ func GetPduSessionModificationRequest(pduSessionId uint8) []byte {
 		nasMessage.Epd5GSSessionManagementMessage)
 	pduSessionModificationRequest.SetMessageType(nas.MsgTypePDUSessionModificationRequest)
 	pduSessionModificationRequest.SetPDUSessionID(pduSessionId)
-	pduSessionModificationRequest.SetPTI(0x00)
+
+	// UE shall use a PTI value in the range [1, 254], 0 means unassigned and 255 reserved (Ref. TS 24 007 11.2.3.1a)
+	pduSessionModificationRequest.SetPTI(getNextPTI(&pti))
+
 	// pduSessionModificationRequest.RequestedQosFlowDescriptions = nasType.NewRequestedQosFlowDescriptions(nasMessage.
 	// PDUSessionModificationRequestRequestedQosFlowDescriptionsType)
 	// pduSessionModificationRequest.RequestedQosFlowDescriptions.SetLen(6)
@@ -265,7 +289,7 @@ func GetPduSessionModificationRequest(pduSessionId uint8) []byte {
 	return data.Bytes()
 }
 
-func GetPduSessionModificationComplete(pduSessionId uint8) []byte {
+func GetPduSessionModificationComplete(pduSessionId uint8, pti uint8) []byte {
 	m := nas.NewMessage()
 	m.GsmMessage = nas.NewGsmMessage()
 	m.GsmHeader.SetMessageType(nas.MsgTypePDUSessionModificationComplete)
@@ -275,7 +299,7 @@ func GetPduSessionModificationComplete(pduSessionId uint8) []byte {
 		nasMessage.Epd5GSSessionManagementMessage)
 	pduSessionModificationComplete.SetMessageType(nas.MsgTypePDUSessionModificationComplete)
 	pduSessionModificationComplete.SetPDUSessionID(pduSessionId)
-	pduSessionModificationComplete.SetPTI(0x00)
+	pduSessionModificationComplete.SetPTI(pti)
 
 	m.PDUSessionModificationComplete = pduSessionModificationComplete
 
@@ -288,7 +312,7 @@ func GetPduSessionModificationComplete(pduSessionId uint8) []byte {
 	return data.Bytes()
 }
 
-func GetPduSessionModificationCommandReject(pduSessionId uint8) []byte {
+func GetPduSessionModificationCommandReject(pduSessionId uint8, pti uint8) []byte {
 	m := nas.NewMessage()
 	m.GsmMessage = nas.NewGsmMessage()
 	m.GsmHeader.SetMessageType(nas.MsgTypePDUSessionModificationCommandReject)
@@ -298,7 +322,7 @@ func GetPduSessionModificationCommandReject(pduSessionId uint8) []byte {
 		nasMessage.Epd5GSSessionManagementMessage)
 	pduSessionModificationCommandReject.SetMessageType(nas.MsgTypePDUSessionModificationCommandReject)
 	pduSessionModificationCommandReject.SetPDUSessionID(pduSessionId)
-	pduSessionModificationCommandReject.SetPTI(0x00)
+	pduSessionModificationCommandReject.SetPTI(pti)
 
 	m.PDUSessionModificationCommandReject = pduSessionModificationCommandReject
 
@@ -321,7 +345,9 @@ func GetPduSessionReleaseRequest(pduSessionId uint8) []byte {
 		nasMessage.Epd5GSSessionManagementMessage)
 	pduSessionReleaseRequest.SetMessageType(nas.MsgTypePDUSessionReleaseRequest)
 	pduSessionReleaseRequest.SetPDUSessionID(pduSessionId)
-	pduSessionReleaseRequest.SetPTI(0x00)
+
+	// UE shall use a PTI value in the range [1, 254], 0 means unassigned and 255 reserved (Ref. TS 24 007 11.2.3.1a)
+	pduSessionReleaseRequest.SetPTI(getNextPTI(&pti))
 
 	m.PDUSessionReleaseRequest = pduSessionReleaseRequest
 
@@ -334,7 +360,7 @@ func GetPduSessionReleaseRequest(pduSessionId uint8) []byte {
 	return data.Bytes()
 }
 
-func GetPduSessionReleaseComplete(pduSessionId uint8) []byte {
+func GetPduSessionReleaseComplete(pduSessionId uint8, pti uint8) []byte {
 	m := nas.NewMessage()
 	m.GsmMessage = nas.NewGsmMessage()
 	m.GsmHeader.SetMessageType(nas.MsgTypePDUSessionReleaseComplete)
@@ -344,7 +370,7 @@ func GetPduSessionReleaseComplete(pduSessionId uint8) []byte {
 		nasMessage.Epd5GSSessionManagementMessage)
 	pduSessionReleaseComplete.SetMessageType(nas.MsgTypePDUSessionReleaseComplete)
 	pduSessionReleaseComplete.SetPDUSessionID(pduSessionId)
-	pduSessionReleaseComplete.SetPTI(0x00)
+	pduSessionReleaseComplete.SetPTI(pti)
 
 	m.PDUSessionReleaseComplete = pduSessionReleaseComplete
 
@@ -357,7 +383,7 @@ func GetPduSessionReleaseComplete(pduSessionId uint8) []byte {
 	return data.Bytes()
 }
 
-func GetPduSessionReleaseReject(pduSessionId uint8) []byte {
+func GetPduSessionReleaseReject(pduSessionId uint8, pti uint8) []byte {
 	m := nas.NewMessage()
 	m.GsmMessage = nas.NewGsmMessage()
 	m.GsmHeader.SetMessageType(nas.MsgTypePDUSessionReleaseReject)
@@ -367,7 +393,7 @@ func GetPduSessionReleaseReject(pduSessionId uint8) []byte {
 		nasMessage.Epd5GSSessionManagementMessage)
 	pduSessionReleaseReject.SetMessageType(nas.MsgTypePDUSessionReleaseReject)
 	pduSessionReleaseReject.SetPDUSessionID(pduSessionId)
-	pduSessionReleaseReject.SetPTI(0x00)
+	pduSessionReleaseReject.SetPTI(pti)
 
 	m.PDUSessionReleaseReject = pduSessionReleaseReject
 
@@ -390,7 +416,8 @@ func GetPduSessionAuthenticationComplete(pduSessionId uint8) []byte {
 		nasMessage.Epd5GSSessionManagementMessage)
 	pduSessionAuthenticaitonComplete.SetMessageType(nas.MsgTypePDUSessionAuthenticationComplete)
 	pduSessionAuthenticaitonComplete.SetPDUSessionID(pduSessionId)
-	pduSessionAuthenticaitonComplete.SetPTI(0x00)
+	pduSessionAuthenticaitonComplete.SetPTI(0x00) // Ref. TS 24 501 6.3.1.2.1 and 7.3.1
+
 	pduSessionAuthenticaitonComplete.EAPMessage.SetLen(6)
 	pduSessionAuthenticaitonComplete.SetEAPMessage([]byte{0x00, 0x11, 0x22, 0x33, 0x44, 0x55})
 
@@ -405,21 +432,21 @@ func GetPduSessionAuthenticationComplete(pduSessionId uint8) []byte {
 	return data.Bytes()
 }
 
-func GetUlNasTransport_PduSessionCommonData(pduSessionId uint8, types string) []byte {
+func GetUlNasTransport_PduSessionCommonData(pduSessionId uint8, types string, pti uint8) []byte {
 	var payload []byte
 	switch types {
 	case PDUSesModiReq:
 		payload = GetPduSessionModificationRequest(pduSessionId)
 	case PDUSesModiCmp:
-		payload = GetPduSessionModificationComplete(pduSessionId)
+		payload = GetPduSessionModificationComplete(pduSessionId, pti)
 	case PDUSesModiCmdRej:
-		payload = GetPduSessionModificationCommandReject(pduSessionId)
+		payload = GetPduSessionModificationCommandReject(pduSessionId, pti)
 	case PDUSesRelReq:
 		payload = GetPduSessionReleaseRequest(pduSessionId)
 	case PDUSesRelCmp:
-		payload = GetPduSessionReleaseComplete(pduSessionId)
+		payload = GetPduSessionReleaseComplete(pduSessionId, pti)
 	case PDUSesRelRej:
-		payload = GetPduSessionReleaseReject(pduSessionId)
+		payload = GetPduSessionReleaseReject(pduSessionId, pti)
 	case PDUSesAuthCmp:
 		payload = GetPduSessionAuthenticationComplete(pduSessionId)
 	}
@@ -814,7 +841,7 @@ func GetStatus5GMM(cause uint8) []byte {
 	return data.Bytes()
 }
 
-func GetStatus5GSM(pduSessionId uint8, cause uint8) []byte {
+func GetStatus5GSM(pduSessionId uint8, cause uint8, pti uint8) []byte {
 	m := nas.NewMessage()
 	m.GsmMessage = nas.NewGsmMessage()
 	m.GsmHeader.SetMessageType(nas.MsgTypeStatus5GSM)
@@ -823,8 +850,8 @@ func GetStatus5GSM(pduSessionId uint8, cause uint8) []byte {
 	status5GSM.SetExtendedProtocolDiscriminator(nasMessage.Epd5GSSessionManagementMessage)
 	status5GSM.SetMessageType(nas.MsgTypeStatus5GSM)
 	status5GSM.SetPDUSessionID(pduSessionId)
-	status5GSM.SetPTI(0x00)
-	status5GSM.SetCauseValue(cause)
+	status5GSM.SetPTI(pti)
+  status5GSM.SetCauseValue(cause)
 
 	m.Status5GSM = status5GSM
 
@@ -837,8 +864,8 @@ func GetStatus5GSM(pduSessionId uint8, cause uint8) []byte {
 	return data.Bytes()
 }
 
-func GetUlNasTransport_Status5GSM(pduSessionId uint8, cause uint8) []byte {
-	payload := GetStatus5GSM(pduSessionId, cause)
+func GetUlNasTransport_Status5GSM(pduSessionId uint8, cause uint8, pti uint8) []byte {
+	payload := GetStatus5GSM(pduSessionId, cause, pti)
 
 	m := nas.NewMessage()
 	m.GmmMessage = nas.NewGmmMessage()
@@ -904,9 +931,9 @@ func GetUlNasTransport_PduSessionReleaseRequest(pduSessionId uint8) []byte {
 }
 
 func GetUlNasTransport_PduSessionReleaseComplete(pduSessionId uint8, requestType uint8, dnnString string,
-	sNssai *models.Snssai,
+	sNssai *models.Snssai, pti uint8,
 ) []byte {
-	pduSessionReleaseRequest := GetPduSessionReleaseComplete(pduSessionId)
+	pduSessionReleaseRequest := GetPduSessionReleaseComplete(pduSessionId, pti)
 
 	m := nas.NewMessage()
 	m.GmmMessage = nas.NewGmmMessage()

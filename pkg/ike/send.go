@@ -140,7 +140,7 @@ func (s *Server) SendIkeAuth() {
 	idByte := make([]byte, 8)
 	id, err := ike_security.GenerateRandomNumber()
 	if err != nil {
-		ikeLog.Errorf("error generating IDi: %d", err)
+		ikeLog.Errorf("error generating IDi: %v", err)
 		return
 	}
 

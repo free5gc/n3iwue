@@ -503,7 +503,8 @@ func (s *Server) handleIKEAUTH(
 		}
 
 		var idPayload ike_message.IKEPayloadContainer
-		idPayload.BuildIdentificationInitiator(ike_message.ID_KEY_ID, []byte("UE"))
+		idInitiator := n3ueSelf.IkeIDInitiator
+		idPayload.BuildIdentificationInitiator(ike_message.ID_KEY_ID, idInitiator)
 		idPayloadData, err := idPayload.Encode()
 		if err != nil {
 			ikeLog.Errorln(err)

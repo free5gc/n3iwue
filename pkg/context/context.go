@@ -44,6 +44,7 @@ type N3UE struct {
 	RanUeContext         *security.RanUeContext
 	MobileIdentity5GS    nasType.MobileIdentity5GS
 	IkeInitiatorSPI      uint64
+	IkeIDInitiator       []byte
 	Secert               *big.Int
 	Factor               *big.Int
 	Proposal             *message.Proposal

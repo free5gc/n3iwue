@@ -137,7 +137,16 @@ func (s *Server) SendIkeAuth() {
 	var ikePayload ike_message.IKEPayloadContainer
 
 	// Identification
-	ikePayload.BuildIdentificationInitiator(ike_message.ID_KEY_ID, []byte("UE"))
+	idByte := make([]byte, 8)
+	id, err := ike_security.GenerateRandomNumber()
+	if err != nil {
+		ikeLog.Errorf("error generating IDi: %v", err)
+		return
+	}
+
+	binary.BigEndian.PutUint64(idByte, id.Uint64())
+	ikePayload.BuildIdentificationInitiator(ike_message.ID_KEY_ID, idByte)
+	n3ueContext.IkeIDInitiator = idByte
 
 	// Security Association
 	n3ueContext.SecurityAssociation = ikePayload.BuildSecurityAssociation()
@@ -196,7 +205,7 @@ func (s *Server) SendIkeAuth() {
 		n3ueContext.N3IWFUe.IKEConnection = n3ueContext.IKEConnection[4500]
 	}
 
-	err := s.SendIkeMsgToN3iwf(
+	err = s.SendIkeMsgToN3iwf(
 		n3ueContext.N3IWFUe.IKEConnection,
 		ikeMessage,
 		n3ueContext.N3IWFUe.N3IWFIKESecurityAssociation)

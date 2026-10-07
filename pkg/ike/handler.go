@@ -423,7 +423,8 @@ func (s *Server) handleIKEAUTH(
 			nil,
 			nil,
 		)
-		pdu := nasPacket.GetSecurityModeComplete(registrationRequestWith5GMM)
+		pdu := nasPacket.GetSecurityModeComplete(registrationRequestWith5GMM,
+			factory.N3ueInfo.GetIMEISV())
 		if pdu, err = ngapPacket.EncodeNasPduWithSecurity(ue,
 			pdu,
 			nas.SecurityHeaderTypeIntegrityProtectedAndCipheredWithNew5gNasSecurityContext,

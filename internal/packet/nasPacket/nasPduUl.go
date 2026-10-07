@@ -691,8 +691,22 @@ func GetRegistrationComplete(sorTransparentContainer []uint8) []byte {
 	return data.Bytes()
 }
 
+// isValidIMEISV checks whether IMEISV is a 16-digit decimal string (TS 23.003 6.2.2)
+func isValidIMEISV(imeisv string) bool {
+	if len(imeisv) != 16 {
+		return false
+	}
+	for i := 0; i < len(imeisv); i++ {
+		if imeisv[i] < '0' || imeisv[i] > '9' {
+			return false
+		}
+	}
+	return true
+}
+
 // TS 24.501 8.2.26.
-func GetSecurityModeComplete(nasMessageContainer []uint8) []byte {
+// imeisv is the 16-digit IMEISV; if empty, a default IMEISV is used.
+func GetSecurityModeComplete(nasMessageContainer []uint8, imeisv string) []byte {
 	m := nas.NewMessage()
 	m.GmmMessage = nas.NewGmmMessage()
 	m.GmmHeader.SetMessageType(nas.MsgTypeSecurityModeComplete)
@@ -709,9 +723,30 @@ func GetSecurityModeComplete(nasMessageContainer []uint8) []byte {
 	securityModeComplete.IMEISV.SetLen(9)
 	securityModeComplete.SetOddEvenIdic(0)
 	securityModeComplete.SetTypeOfIdentity(nasMessage.MobileIdentity5GSTypeImeisv)
-	securityModeComplete.SetIdentityDigit1(1)
-	securityModeComplete.SetIdentityDigitP_1(1)
-	securityModeComplete.SetIdentityDigitP(1)
+	if isValidIMEISV(imeisv) {
+		// TS 24.501 9.11.3.4: nasType names digits 2..16 as P, P_1, ..., P_14;
+		// P_15 is the high nibble of the last octet, filled with 0xF (even number of digits).
+		ie := securityModeComplete.IMEISV
+		setDigits := []func(uint8){
+			ie.SetIdentityDigit1,
+			ie.SetIdentityDigitP, ie.SetIdentityDigitP_1,
+			ie.SetIdentityDigitP_2, ie.SetIdentityDigitP_3,
+			ie.SetIdentityDigitP_4, ie.SetIdentityDigitP_5,
+			ie.SetIdentityDigitP_6, ie.SetIdentityDigitP_7,
+			ie.SetIdentityDigitP_8, ie.SetIdentityDigitP_9,
+			ie.SetIdentityDigitP_10, ie.SetIdentityDigitP_11,
+			ie.SetIdentityDigitP_12, ie.SetIdentityDigitP_13,
+			ie.SetIdentityDigitP_14,
+		}
+		for i, setDigit := range setDigits {
+			setDigit(imeisv[i] - '0')
+		}
+		ie.SetIdentityDigitP_15(0x0f)
+	} else {
+		securityModeComplete.SetIdentityDigit1(1)
+		securityModeComplete.SetIdentityDigitP_1(1)
+		securityModeComplete.SetIdentityDigitP(1)
+	}
 
 	if nasMessageContainer != nil {
 		securityModeComplete.NASMessageContainer = nasType.NewNASMessageContainer(

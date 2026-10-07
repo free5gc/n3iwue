@@ -136,6 +136,8 @@ type N3UEInfo struct {
 	DpdInterval        time.Duration          `yaml:"DpdInterval" valid:"optional"`
 	IkeRetransmit      *ExponentialTimerValue `yaml:"IkeRetransmit" valid:"required"`
 	AutoReRegistration bool                   `yaml:"AutoReRegistration" valid:"optional"`
+	IMEI               string                 `yaml:"IMEI" valid:"numeric,stringlength(15|15),optional"`
+	SVN                string                 `yaml:"SVN" valid:"numeric,stringlength(2|2),optional"`
 }
 
 func (i *N3UEInfo) validate() (bool, error) {
@@ -191,6 +193,20 @@ func (s *SNSSAI) ToBytes() ([]byte, error) {
 	}
 	copy(bytes[1:], sd)
 	return bytes, nil
+}
+
+// GetIMEISV returns the 16-digit IMEISV (TS 23.003 6.2.2: TAC(8) + SNR(6) + SVN(2))
+// built from the configured 15-digit IMEI (dropping check digit) and SVN (default "00"),
+// or an empty string if no IMEI is configured.
+func (n *N3UEInfo) GetIMEISV() string {
+	if len(n.IMEI) != 15 {
+		return ""
+	}
+	svn := n.SVN
+	if svn == "" {
+		svn = "00"
+	}
+	return n.IMEI[:14] + svn
 }
 
 func (n *N3UEInfo) GetAMFID() ([]byte, error) {
